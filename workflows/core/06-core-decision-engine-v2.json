@@ -1,0 +1,148 @@
+{
+  "name": "Concierge OS - Decision Engine v2",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f3271d83-201d-4ea2-a4cb-1b6eeeaf758e",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestText"
+            },
+            {
+              "name": "userContext",
+              "type": "object"
+            },
+            {
+              "name": "calendarContext",
+              "type": "object"
+            },
+            {
+              "name": "activityHistory",
+              "type": "array"
+            },
+            {
+              "name": "recommendationHistory",
+              "type": "array"
+            },
+            {
+              "name": "feedbackHistory",
+              "type": "array"
+            },
+            {
+              "name": "weatherContext",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "fb026002-c9cb-4ddd-a716-ec79baad2ede",
+      "name": "Called by Main Orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -820,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json || {};\nreturn [{\n  json: {\n    requestText: input.requestText || input.text || input.message || 'Bu akşam ne yapayım?',\n    userContext: input.userContext || {},\n    calendarContext: input.calendarContext || {},\n    activityHistory: input.activityHistory || [],\n    recommendationHistory: input.recommendationHistory || [],\n    feedbackHistory: input.feedbackHistory || [],\n    weatherContext: input.weatherContext || {}\n  }\n}];"
+      },
+      "id": "d515a7ad-2e13-4130-b129-2eaa485567a6",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst originalText = String(\n  input.requestText ??\n  input.text ??\n  input.message ??\n  'Bu akşam ne yapayım?'\n).trim();\n\nconst userContext = input.userContext || {};\nconst calendarContext = input.calendarContext || {};\nconst activityHistory = input.activityHistory || [];\nconst recommendationHistory = input.recommendationHistory || [];\nconst feedbackHistory = input.feedbackHistory || [];\n\nfunction normalizeText(text) {\n  return String(text)\n    .toLocaleLowerCase('tr-TR')\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/[^\\p{L}\\p{N}\\s]/gu, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nconst normalized = normalizeText(originalText);\nconst tokens = normalized.split(' ').filter(Boolean);\n\nfunction containsPhrase(phrase) {\n  return normalized.includes(normalizeText(phrase));\n}\n\nfunction tokenOverlap(words) {\n  const normalizedWords = words.map(normalizeText);\n  return normalizedWords.filter(word => tokens.includes(word)).length;\n}\n\nconst intents = [\n  {\n    id: 'calendar_action',\n    label: 'Calendar Action',\n    priority: 100,\n    agent: 'Concierge OS - Calendar Approval',\n    actionMode: 'prepare_and_request_approval',\n    requiredContext: ['calendar'],\n    phrases: [\n      'takvime ekle', 'takvimime ekle', 'add to calendar', 'randevu ekle',\n      'takvimden sil', 'takvimi guncelle', 'yeniden planla', 'reschedule',\n      'takvimde degistir', 'eventi sil'\n    ],\n    tokens: ['takvim', 'calendar', 'ekle', 'sil', 'reschedule', 'randevu']\n  },\n  {\n    id: 'weekly_planning',\n    label: 'Weekly Planning',\n    priority: 95,\n    agent: 'Concierge OS - Weekly Planner',\n    actionMode: 'analyze_and_plan',\n    requiredContext: ['memory', 'calendar', 'activity_history', 'recommendation_history'],\n    phrases: [\n      'haftayi planla', 'haftami planla', 'gelecek haftayi planla',\n      'weekly plan', 'plan my week', 'bu hafta plan', 'next week plan'\n    ],\n    tokens: ['hafta', 'weekly', 'week', 'planla', 'plan']\n  },\n  {\n    id: 'daily_planning',\n    label: 'Daily Planning',\n    priority: 92,\n    agent: 'Concierge OS - Daily Planner',\n    actionMode: 'discover_analyze_recommend',\n    requiredContext: ['memory', 'calendar', 'weather', 'recommendation_history'],\n    phrases: [\n      'bu aksam ne yapayim', 'bugun ne yapayim', 'bu gece ne yapayim',\n      'aksam plani', 'gunumu planla', 'plan my day', 'what should i do tonight',\n      'what should i do today'\n    ],\n    tokens: ['bugun', 'aksam', 'tonight', 'today', 'gunumu']\n  },\n  {\n    id: 'social_discovery',\n    label: 'Social Discovery',\n    priority: 88,\n    agent: 'Concierge OS - Social Discovery Agent',\n    actionMode: 'discover_analyze_recommend',\n    requiredContext: ['memory', 'calendar', 'recommendation_history', 'feedback_history'],\n    phrases: [\n      'networking etkinligi bul', 'sosyal etkinlik bul', 'yeni insanlarla tanis',\n      'internations etkinligi', 'meetup etkinligi', 'jazz etkinligi',\n      'stand up etkinligi', 'turk etkinligi', 'social event', 'networking event'\n    ],\n    tokens: [\n      'networking', 'sosyal', 'social', 'internations', 'meetup', 'event',\n      'etkinlik', 'jazz', 'standup', 'mixer', 'arkadas', 'tanis'\n    ]\n  },\n  {\n    id: 'sports_fitness',\n    label: 'Sports and Fitness',\n    priority: 87,\n    agent: 'Concierge OS - Sports and Fitness Agent',\n    actionMode: 'discover_analyze_recommend',\n    requiredContext: ['memory', 'calendar', 'activity_history'],\n    phrases: [\n      'boxing yapmak istiyorum', 'spor yapmak istiyorum', 'gym e gitmek istiyorum',\n      'padel oynamak istiyorum', 'tennis oynamak istiyorum', 'privilee aktivitesi',\n      'workout plan', 'find boxing', 'find gym'\n    ],\n    tokens: [\n      'boxing', 'boks', 'gym', 'spor', 'padel', 'tennis', 'yuzme',\n      'swimming', 'walk', 'yuruyus', 'fitness', 'privilee', 'antrenman', 'workout'\n    ]\n  },\n  {\n    id: 'style_grooming',\n    label: 'Style and Grooming',\n    priority: 86,\n    agent: 'Concierge OS - Style and Grooming Coach',\n    actionMode: 'analyze_and_respond',\n    requiredContext: ['memory', 'calendar'],\n    phrases: [\n      'bugun ne giyeyim', 'bu aksam ne giyeyim', 'outfit oner',\n      'sac sakal bakimi', 'grooming tavsiyesi', 'kombin oner'\n    ],\n    tokens: [\n      'giy', 'giyim', 'outfit', 'tarz', 'style', 'bakim', 'grooming',\n      'sakal', 'sac', 'parfum', 'fragrance', 'skincare', 'kombin'\n    ]\n  },\n  {\n    id: 'social_confidence',\n    label: 'Social Confidence',\n    priority: 85,\n    agent: 'Concierge OS - Social Confidence Coach',\n    actionMode: 'analyze_and_respond',\n    requiredContext: ['memory', 'feedback_history'],\n    phrases: [\n      'kadinlara nasil yaklasirim', 'kadinla nasil konusurum', 'sohbet nasil baslatilir',\n      'flort mesaji', 'date hazirligi', 'approach women', 'start a conversation'\n    ],\n    tokens: [\n      'kadin', 'yaklas', 'approach', 'flort', 'flirt', 'conversation',\n      'sohbet', 'ozguven', 'confidence', 'dating', 'date', 'mesaj'\n    ]\n  },\n  {\n    id: 'travel',\n    label: 'Travel',\n    priority: 82,\n    agent: 'Concierge OS - Travel Scout',\n    actionMode: 'discover_analyze_recommend',\n    requiredContext: ['memory', 'calendar', 'recommendation_history'],\n    phrases: [\n      'hafta sonu kacamak', 'ucuz ucus bul', 'weekend trip',\n      'road trip planla', 'otel bul', 'travel plan'\n    ],\n    tokens: [\n      'seyahat', 'travel', 'trip', 'ucus', 'flight', 'otel', 'hotel',\n      'oman', 'roadtrip', 'tatil', 'destination', 'kacamak'\n    ]\n  },\n  {\n    id: 'career_learning',\n    label: 'Career and Learning',\n    priority: 80,\n    agent: 'Concierge OS - Career and Learning Coach',\n    actionMode: 'discover_analyze_recommend',\n    requiredContext: ['memory', 'calendar'],\n    phrases: [\n      'kariyerimi gelistir', 'security architect gelisim',\n      'ai ogrenme plani', 'leadership gelisim', 'conference bul'\n    ],\n    tokens: [\n      'kariyer', 'career', 'cybersecurity', 'security', 'architect',\n      'ai', 'learning', 'liderlik', 'leadership', 'conference', 'sertifika', 'job'\n    ]\n  },\n  {\n    id: 'finance',\n    label: 'Finance',\n    priority: 78,\n    agent: 'Concierge OS - Finance Coach',\n    actionMode: 'analyze_and_respond',\n    requiredContext: ['memory'],\n    phrases: [\n      'finance review', 'butce kontrolu', 'yatirimlarimi kontrol et',\n      'harcamalarimi incele', 'weekly finance review'\n    ],\n    tokens: [\n      'finans', 'finance', 'butce', 'budget', 'yatirim',\n      'investment', 'harcama', 'expense', 'tasarruf', 'saving', 'abonelik'\n    ]\n  },\n  {\n    id: 'feedback',\n    label: 'Feedback',\n    priority: 76,\n    agent: 'Concierge OS - Feedback Collector',\n    actionMode: 'store_and_confirm',\n    requiredContext: ['memory', 'recommendation_history'],\n    phrases: [\n      'etkinlik guzeldi', 'etkinlik kotuydu', 'tekrar giderim',\n      'tekrar gitmem', 'puan vermek istiyorum', 'feedback vermek istiyorum'\n    ],\n    tokens: [\n      'begendim', 'begenmedim', 'guzeldi', 'kotuydu', 'rating',\n      'feedback', 'katildim', 'gitmedim', 'puan'\n    ]\n  },\n  {\n    id: 'profile_update',\n    label: 'Profile Update',\n    priority: 74,\n    agent: 'Concierge OS - Memory Manager',\n    actionMode: 'prepare_and_request_approval',\n    requiredContext: ['memory'],\n    phrases: [\n      'bunu hatirla', 'tercihimi guncelle', 'artik istemiyorum',\n      'daha az oner', 'daha cok oner', 'profilimi guncelle',\n      'remember this', 'update my preference'\n    ],\n    tokens: [\n      'hatirla', 'tercih', 'profil', 'remember', 'preference',\n      'seviyorum', 'sevmiyorum'\n    ]\n  }\n];\n\nfunction scoreIntent(intent) {\n  let phraseMatches = 0;\n  let tokenMatches = 0;\n\n  const matchedPhrases = [];\n  const matchedTokens = [];\n\n  for (const phrase of intent.phrases) {\n    if (containsPhrase(phrase)) {\n      phraseMatches++;\n      matchedPhrases.push(phrase);\n    }\n  }\n\n  for (const token of intent.tokens) {\n    const n = normalizeText(token);\n    if (tokens.includes(n)) {\n      tokenMatches++;\n      matchedTokens.push(token);\n    }\n  }\n\n  let score = 0;\n  score += phraseMatches * 40;\n  score += tokenMatches * 8;\n  score += phraseMatches > 0 ? intent.priority / 10 : 0;\n\n  return {\n    ...intent,\n    score,\n    phraseMatches,\n    tokenMatches,\n    matchedPhrases,\n    matchedTokens\n  };\n}\n\nlet ranked = intents\n  .map(scoreIntent)\n  .filter(item => item.score > 0)\n  .sort((a, b) => {\n    if (b.score !== a.score) return b.score - a.score;\n    return b.priority - a.priority;\n  });\n\nif (!ranked.length) {\n  ranked = [{\n    id: 'general_concierge',\n    label: 'General Concierge',\n    priority: 40,\n    agent: 'Concierge OS - General Concierge',\n    actionMode: 'analyze_and_respond',\n    requiredContext: ['memory', 'calendar'],\n    score: 10,\n    phraseMatches: 0,\n    tokenMatches: 0,\n    matchedPhrases: [],\n    matchedTokens: []\n  }];\n}\n\nconst primary = ranked[0];\nconst secondaryCandidates = ranked\n  .slice(1)\n  .filter(item => item.score >= Math.max(16, primary.score * 0.35))\n  .slice(0, 3);\n\nconst multiIntent = secondaryCandidates.length > 0;\n\nlet confidence = 0.45;\nif (primary.phraseMatches >= 2) confidence = 0.99;\nelse if (primary.phraseMatches === 1 && primary.tokenMatches >= 2) confidence = 0.96;\nelse if (primary.phraseMatches === 1) confidence = 0.92;\nelse if (primary.tokenMatches >= 4) confidence = 0.90;\nelse if (primary.tokenMatches === 3) confidence = 0.84;\nelse if (primary.tokenMatches === 2) confidence = 0.76;\nelse if (primary.tokenMatches === 1) confidence = 0.62;\n\nconst ambiguityGap = ranked.length > 1 ? primary.score - ranked[1].score : primary.score;\nconst isAmbiguous = confidence < 0.70 || ambiguityGap < 8;\n\nconst safetyFlags = [];\n\nif (/(satın al|odeme yap|pay now|book and pay|rezervasyon yap)/i.test(originalText)) {\n  safetyFlags.push('external_transaction_requires_explicit_approval');\n}\n\nif (/(mesaj gonder|email gonder|send message|send email)/i.test(originalText)) {\n  safetyFlags.push('external_communication_requires_explicit_approval');\n}\n\nif (/(sil|delete|cancel|iptal et)/i.test(originalText)) {\n  safetyFlags.push('destructive_action_requires_explicit_approval');\n}\n\nconst requiresApproval =\n  primary.actionMode === 'prepare_and_request_approval' ||\n  safetyFlags.length > 0;\n\nconst requestedAgentChain = [\n  'Concierge OS - Memory Manager',\n  'Concierge OS - Context Builder',\n  primary.agent\n];\n\nfor (const secondary of secondaryCandidates) {\n  if (!requestedAgentChain.includes(secondary.agent)) {\n    requestedAgentChain.push(secondary.agent);\n  }\n}\n\nconst contextAvailability = {\n  userContext: Object.keys(userContext).length > 0,\n  calendarContext: Object.keys(calendarContext).length > 0,\n  activityHistory: Array.isArray(activityHistory) && activityHistory.length > 0,\n  recommendationHistory: Array.isArray(recommendationHistory) && recommendationHistory.length > 0,\n  feedbackHistory: Array.isArray(feedbackHistory) && feedbackHistory.length > 0\n};\n\nconst missingContext = primary.requiredContext.filter(name => {\n  if (name === 'memory') return !contextAvailability.userContext;\n  if (name === 'calendar') return !contextAvailability.calendarContext;\n  if (name === 'activity_history') return !contextAvailability.activityHistory;\n  if (name === 'recommendation_history') return !contextAvailability.recommendationHistory;\n  if (name === 'feedback_history') return !contextAvailability.feedbackHistory;\n  if (name === 'weather') return !input.weatherContext;\n  return false;\n});\n\nconst plan = {\n  primaryIntent: primary.id,\n  secondaryIntents: secondaryCandidates.map(item => item.id),\n  multiIntent,\n  steps: [\n    {\n      order: 1,\n      workflow: 'Concierge OS - Memory Manager',\n      purpose: 'Load persistent user profile and preferences'\n    },\n    {\n      order: 2,\n      workflow: 'Concierge OS - Context Builder',\n      purpose: 'Combine memory, calendar, history and live request context'\n    },\n    {\n      order: 3,\n      workflow: primary.agent,\n      purpose: `Handle primary intent: ${primary.label}`\n    }\n  ]\n};\n\nsecondaryCandidates.forEach((item, index) => {\n  plan.steps.push({\n    order: 4 + index,\n    workflow: item.agent,\n    purpose: `Handle secondary intent: ${item.label}`\n  });\n});\n\nreturn [{\n  json: {\n    success: true,\n    engineVersion: '2.0.0',\n    request: {\n      originalText,\n      normalizedText: normalized,\n      tokens\n    },\n    decision: {\n      primaryIntent: primary.id,\n      primaryLabel: primary.label,\n      primaryAgent: primary.agent,\n      actionMode: primary.actionMode,\n      confidence,\n      isAmbiguous,\n      multiIntent,\n      requiresApproval,\n      safetyFlags,\n      requiredContext: primary.requiredContext,\n      missingContext\n    },\n    routing: {\n      requestedAgentChain,\n      secondaryAgents: secondaryCandidates.map(item => item.agent)\n    },\n    plan,\n    evidence: {\n      matchedPhrases: primary.matchedPhrases,\n      matchedTokens: primary.matchedTokens,\n      primaryScore: primary.score,\n      ambiguityGap,\n      alternatives: ranked.slice(1, 5).map(item => ({\n        intent: item.id,\n        label: item.label,\n        agent: item.agent,\n        score: item.score,\n        matchedPhrases: item.matchedPhrases,\n        matchedTokens: item.matchedTokens\n      }))\n    },\n    contextAvailability\n  }\n}];\n"
+      },
+      "id": "65254f8d-7663-4a6c-8802-71aad8e4f96c",
+      "name": "Decision Engine v2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -190,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Decision Engine v2\n\nNo OpenAI or n8n AI credits are used.\n\n### Features\n\n- Turkish character and punctuation normalization\n- Phrase and token scoring\n- Multi-intent detection\n- Primary and secondary agent routing\n- Confidence and ambiguity score\n- Approval and safety policy\n- Context availability and missing-context detection\n- Agent chain planning\n\n### Default manual test\n\n`Bu akşam ne yapayım?`\n\nExpected primary intent:\n\n`daily_planning`\n\n### Suggested tests\n\n- `Yarın boxing yapmak istiyorum`\n- `Cuma networking etkinliği bul`\n- `Bu akşam spora gidip sonra sosyal bir etkinlik bul`\n- `Bugün ne giyeyim?`\n- `Bunu takvimime ekle`\n",
+        "height": 470,
+        "width": 470
+      },
+      "id": "0c38d45a-247c-489c-a545-b08436bc8be0",
+      "name": "V2 NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -830,
+        -590
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Main Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Decision Engine v2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "ffde027f-5280-4619-80ac-3d1482e832b6",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
