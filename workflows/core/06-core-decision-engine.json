@@ -1,0 +1,132 @@
+{
+  "name": "Concierge OS - Decision Engine",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b4aab274-85ab-4718-9318-a13d407d08b7",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestText"
+            },
+            {
+              "name": "userContext",
+              "type": "object"
+            },
+            {
+              "name": "calendarContext",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "1d8092f0-1067-4e87-b1ec-8a2122c1fd00",
+      "name": "Called by Main Orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -760,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json || {};\nreturn [{\n  json: {\n    requestText: input.requestText || input.text || input.message || 'Bu akşam ne yapayım?',\n    userContext: input.userContext || {},\n    calendarContext: input.calendarContext || {}\n  }\n}];"
+      },
+      "id": "80b5909e-0beb-4e98-8c9d-ee604fcf1e2b",
+      "name": "Normalize Decision Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst incoming = $json || {};\n\nconst requestText = String(\n  incoming.requestText ??\n  incoming.text ??\n  incoming.message ??\n  'Bu akşam ne yapayım?'\n).trim();\n\nconst userContext = incoming.userContext ?? {};\nconst calendarContext = incoming.calendarContext ?? {};\nconst normalized = requestText\n  .toLocaleLowerCase('tr-TR')\n  .normalize('NFD')\n  .replace(/[\\u0300-\\u036f]/g, '');\n\nconst routeDefinitions = [\n  {\n    route: 'calendar_action',\n    agentWorkflowName: 'Concierge OS - Calendar Approval',\n    priority: 100,\n    keywords: [\n      'takvime ekle', 'calendar ekle', 'add to calendar', 'randevu ekle',\n      'etkinligi ekle', 'eventi ekle', 'takvimden sil', 'takvimi guncelle',\n      'reschedule', 'yeniden planla'\n    ],\n    needsDiscovery: false,\n    requiresApproval: true,\n    requiredContext: ['calendar']\n  },\n  {\n    route: 'weekly_planner',\n    agentWorkflowName: 'Concierge OS - Weekly Planner',\n    priority: 95,\n    keywords: [\n      'haftami planla', 'haftayi planla', 'weekly plan', 'bu hafta plan',\n      'gelecek hafta', 'next week', 'haftalik plan'\n    ],\n    needsDiscovery: true,\n    requiresApproval: false,\n    requiredContext: ['memory', 'calendar', 'recommendation_history']\n  },\n  {\n    route: 'daily_planner',\n    agentWorkflowName: 'Concierge OS - Daily Planner',\n    priority: 90,\n    keywords: [\n      'bu aksam ne yapayim', 'bugun ne yapayim', 'tonight', 'today plan',\n      'aksam plani', 'gunumu planla', 'plan my day', 'bu gece'\n    ],\n    needsDiscovery: true,\n    requiresApproval: false,\n    requiredContext: ['memory', 'calendar', 'weather', 'recommendation_history']\n  },\n  {\n    route: 'social_discovery',\n    agentWorkflowName: 'Concierge OS - Social Discovery Agent',\n    priority: 85,\n    keywords: [\n      'sosyal etkinlik', 'networking', 'internations', 'meetup', 'event',\n      'etkinlik bul', 'insanlarla tanis', 'yeni insan', 'jazz', 'stand up',\n      'stand-up', 'mixer', 'social', 'arkadas edin', 'turk etkinligi'\n    ],\n    needsDiscovery: true,\n    requiresApproval: false,\n    requiredContext: ['memory', 'calendar', 'recommendation_history']\n  },\n  {\n    route: 'sports_fitness',\n    agentWorkflowName: 'Concierge OS - Sports and Fitness Agent',\n    priority: 84,\n    keywords: [\n      'boxing', 'boks', 'gym', 'spor', 'padel', 'tennis', 'yuzme',\n      'swimming', 'walk', 'yuruyus', 'fitness', 'privilee', 'antrenman',\n      'workout'\n    ],\n    needsDiscovery: true,\n    requiresApproval: false,\n    requiredContext: ['memory', 'calendar', 'activity_history']\n  },\n  {\n    route: 'style_grooming',\n    agentWorkflowName: 'Concierge OS - Style and Grooming Coach',\n    priority: 83,\n    keywords: [\n      'ne giyeyim', 'outfit', 'giyim', 'tarz', 'style', 'bakim',\n      'grooming', 'sakal', 'sac', 'parfum', 'fragrance', 'skincare',\n      'cilt bakimi', 'kombin'\n    ],\n    needsDiscovery: false,\n    requiresApproval: false,\n    requiredContext: ['memory', 'calendar']\n  },\n  {\n    route: 'social_confidence',\n    agentWorkflowName: 'Concierge OS - Social Confidence Coach',\n    priority: 82,\n    keywords: [\n      'kadinla konus', 'kadinlara yaklas', 'approach women', 'flirt',\n      'flort', 'conversation', 'sohbet baslat', 'ozguven', 'confidence',\n      'date hazirlik', 'dating', 'mesaj yaz', 'ne diyeyim'\n    ],\n    needsDiscovery: false,\n    requiresApproval: false,\n    requiredContext: ['memory']\n  },\n  {\n    route: 'travel',\n    agentWorkflowName: 'Concierge OS - Travel Scout',\n    priority: 80,\n    keywords: [\n      'seyahat', 'travel', 'trip', 'weekend trip', 'hafta sonu kacamak',\n      'ucuz ucus', 'flight', 'otel', 'hotel', 'oman', 'road trip',\n      'tatil', 'destination'\n    ],\n    needsDiscovery: true,\n    requiresApproval: false,\n    requiredContext: ['memory', 'calendar']\n  },\n  {\n    route: 'career_learning',\n    agentWorkflowName: 'Concierge OS - Career and Learning Coach',\n    priority: 78,\n    keywords: [\n      'kariyer', 'career', 'cybersecurity', 'security architect',\n      'ai ogren', 'learning', 'liderlik', 'leadership', 'public speaking',\n      'is firsati', 'job', 'conference', 'sertifika'\n    ],\n    needsDiscovery: true,\n    requiresApproval: false,\n    requiredContext: ['memory', 'calendar']\n  },\n  {\n    route: 'finance',\n    agentWorkflowName: 'Concierge OS - Finance Coach',\n    priority: 76,\n    keywords: [\n      'finance review', 'finans', 'butce', 'budget', 'yatirim',\n      'investment', 'harcama', 'expense', 'tasarruf', 'saving',\n      'abonelik', 'subscription'\n    ],\n    needsDiscovery: false,\n    requiresApproval: false,\n    requiredContext: ['memory']\n  },\n  {\n    route: 'feedback',\n    agentWorkflowName: 'Concierge OS - Feedback Collector',\n    priority: 74,\n    keywords: [\n      'begendim', 'begenmedim', 'etkinlik guzeldi', 'etkinlik kotuydu',\n      'puan ver', 'rating', 'feedback', 'tekrar gitmem', 'tekrar giderim',\n      'katildim', 'gitmedim'\n    ],\n    needsDiscovery: false,\n    requiresApproval: false,\n    requiredContext: ['memory', 'recommendation_history']\n  },\n  {\n    route: 'profile_update',\n    agentWorkflowName: 'Concierge OS - Memory Manager',\n    priority: 72,\n    keywords: [\n      'bunu hatirla', 'tercihimi guncelle', 'artik istemiyorum',\n      'daha az oner', 'daha cok oner', 'profilimi guncelle',\n      'remember this', 'update my preference', 'seviyorum', 'sevmiyorum'\n    ],\n    needsDiscovery: false,\n    requiresApproval: true,\n    requiredContext: ['memory']\n  }\n];\n\nconst matches = [];\n\nfor (const def of routeDefinitions) {\n  const matchedKeywords = def.keywords.filter(keyword =>\n    normalized.includes(\n      keyword\n        .toLocaleLowerCase('tr-TR')\n        .normalize('NFD')\n        .replace(/[\\u0300-\\u036f]/g, '')\n    )\n  );\n\n  if (matchedKeywords.length > 0) {\n    matches.push({\n      ...def,\n      matchedKeywords,\n      matchCount: matchedKeywords.length,\n      weightedScore: def.priority + (matchedKeywords.length * 5)\n    });\n  }\n}\n\nmatches.sort((a, b) => b.weightedScore - a.weightedScore);\n\nlet selected;\n\nif (matches.length) {\n  selected = matches[0];\n} else {\n  selected = {\n    route: 'general_concierge',\n    agentWorkflowName: 'Concierge OS - General Concierge',\n    priority: 40,\n    matchedKeywords: [],\n    matchCount: 0,\n    weightedScore: 40,\n    needsDiscovery: false,\n    requiresApproval: false,\n    requiredContext: ['memory', 'calendar']\n  };\n}\n\nconst confidence = selected.matchCount >= 3\n  ? 0.98\n  : selected.matchCount === 2\n    ? 0.92\n    : selected.matchCount === 1\n      ? 0.82\n      : 0.45;\n\nconst isAmbiguous =\n  !matches.length ||\n  (matches.length > 1 &&\n   Math.abs(matches[0].weightedScore - matches[1].weightedScore) <= 3);\n\nconst safetyFlags = [];\n\nif (/(satın al|odeme yap|pay now|book and pay|rezervasyon yap)/i.test(requestText)) {\n  safetyFlags.push('external_transaction_requires_explicit_approval');\n}\n\nif (/(mesaj gonder|email gonder|send message|send email)/i.test(requestText)) {\n  safetyFlags.push('external_communication_requires_explicit_approval');\n}\n\nif (/(sil|delete|cancel)/i.test(requestText)) {\n  safetyFlags.push('destructive_action_requires_explicit_approval');\n}\n\nconst actionMode =\n  selected.requiresApproval || safetyFlags.length\n    ? 'prepare_and_request_approval'\n    : selected.needsDiscovery\n      ? 'discover_analyze_recommend'\n      : 'analyze_and_respond';\n\nreturn [{\n  json: {\n    success: true,\n    decision: {\n      route: selected.route,\n      agentWorkflowName: selected.agentWorkflowName,\n      actionMode,\n      confidence,\n      isAmbiguous,\n      needsDiscovery: selected.needsDiscovery,\n      requiresApproval: selected.requiresApproval || safetyFlags.length > 0,\n      requiredContext: selected.requiredContext,\n      matchedKeywords: selected.matchedKeywords,\n      safetyFlags\n    },\n    request: {\n      originalText: requestText,\n      normalizedText: normalized\n    },\n    contextReceived: {\n      hasUserContext: Object.keys(userContext).length > 0,\n      hasCalendarContext: Object.keys(calendarContext).length > 0\n    },\n    alternativeRoutes: matches.slice(1, 4).map(match => ({\n      route: match.route,\n      agentWorkflowName: match.agentWorkflowName,\n      matchedKeywords: match.matchedKeywords,\n      weightedScore: match.weightedScore\n    }))\n  }\n}];\n"
+      },
+      "id": "49a244a1-efde-4bc7-8dbc-feaa30106fe4",
+      "name": "Classify Intent and Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -170,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Decision Engine\n\nThis workflow uses deterministic routing and consumes no AI credits.\n\n### Manual test\nRun the workflow without input. It uses:\n\n`Bu akşam ne yapayım?`\n\nExpected route:\n\n`daily_planner`\n\n### Sub-workflow input\n- `requestText`\n- `userContext`\n- `calendarContext`\n\n### Output\n- route\n- agent workflow name\n- confidence\n- required context\n- approval requirement\n- discovery requirement\n- safety flags\n\nLater, Main Orchestrator will call this workflow and use its result to select the correct specialist agent.",
+        "height": 390,
+        "width": 450
+      },
+      "id": "a851e697-ddd3-4310-88b9-c3418d56a3db",
+      "name": "DECISION ENGINE NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -520
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Decision Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Main Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Normalize Decision Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Decision Input": {
+      "main": [
+        [
+          {
+            "node": "Classify Intent and Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "bbb4a5dd-a975-4883-9a6e-dcd2240ebee4",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
