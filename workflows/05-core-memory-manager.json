@@ -1,0 +1,135 @@
+{
+  "name": "Concierge OS - Memory Manager",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "d4f8c7bb-59a5-466b-a0d3-d62d5680ec0b",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestType"
+            }
+          ]
+        }
+      },
+      "id": "17859d13-e76a-4ae4-a912-dcf991e08865",
+      "name": "Called by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -720,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "SELECT_YOUR_USER_PROFILE_TABLE",
+          "mode": "list",
+          "cachedResultName": "Select concierge user profile"
+        },
+        "returnAll": true,
+        "filters": {
+          "conditions": []
+        }
+      },
+      "id": "b92b556e-659c-4377-b949-c8b4643a450b",
+      "name": "Read User Profile",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -430,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(item => item.json || {});\n\nif (!rows.length || (rows.length === 1 && Object.keys(rows[0]).length === 0)) {\n  throw new Error('User profile table returned no rows. Select the correct Data Table in Read User Profile.');\n}\n\nconst profile = {};\nconst categories = {};\n\nfor (const row of rows) {\n  const key = String(row.key ?? '').trim();\n  if (!key) continue;\n\n  const value = row.value ?? '';\n  const category = String(row.category ?? 'uncategorized').trim();\n\n  profile[key] = value;\n\n  if (!categories[category]) {\n    categories[category] = {};\n  }\n\n  categories[category][key] = value;\n}\n\nconst context = {\n  generatedAt: new Date().toISOString(),\n  timezone: profile.timezone || 'Asia/Dubai',\n  identity: {\n    name: profile.name || 'Savaş',\n    language: profile.language || 'Turkish'\n  },\n  locations: {\n    home: profile.home_location || 'Palm Jumeirah, Dubai',\n    work: profile.work_location || 'Abu Dhabi'\n  },\n  schedule: {\n    mondayTuesday: profile.monday_tuesday || '',\n    wednesdayThursday: profile.wednesday_thursday || '',\n    weekend: profile.weekend || ''\n  },\n  goals: {\n    fitness: profile.fitness_goals || '',\n    social: profile.social_goals || '',\n    style: profile.style_goals || '',\n    dating: profile.dating_goals || '',\n    personalGrowth: profile.personal_growth || '',\n    career: profile.career || ''\n  },\n  preferences: {\n    venues: profile.preferred_venues || '',\n    memberships: profile.memberships || ''\n  },\n  rawProfile: profile,\n  categories\n};\n\nconst promptContext = [\n  `Name: ${context.identity.name}`,\n  `Language: ${context.identity.language}`,\n  `Timezone: ${context.timezone}`,\n  `Home: ${context.locations.home}`,\n  `Work: ${context.locations.work}`,\n  `Monday/Tuesday: ${context.schedule.mondayTuesday}`,\n  `Wednesday/Thursday: ${context.schedule.wednesdayThursday}`,\n  `Weekend: ${context.schedule.weekend}`,\n  `Fitness goals: ${context.goals.fitness}`,\n  `Social goals: ${context.goals.social}`,\n  `Style goals: ${context.goals.style}`,\n  `Dating goals: ${context.goals.dating}`,\n  `Personal growth: ${context.goals.personalGrowth}`,\n  `Career: ${context.goals.career}`,\n  `Preferred venues: ${context.preferences.venues}`,\n  `Memberships: ${context.preferences.memberships}`\n].filter(line => !line.endsWith(': ')).join('\\n');\n\nreturn [{\n  json: {\n    success: true,\n    userContext: context,\n    promptContext,\n    profileRowCount: rows.length\n  }\n}];"
+      },
+      "id": "86961387-19ae-4077-b124-3c99d3a441eb",
+      "name": "Build User Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -130,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Required setup\n\n1. Open **Read User Profile**.\n2. Select your existing Data Table: **concierge user profile**.\n3. Save the workflow.\n4. Run **Manual Test**.\n5. Confirm the output contains `success: true`, `userContext`, and `promptContext`.\n\nThis workflow does not use credentials or environment variables.",
+        "height": 280,
+        "width": 430
+      },
+      "id": "e433506a-5f64-4d71-ab04-0f7496fbd7d2",
+      "name": "SETUP INSTRUCTIONS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -740,
+        -420
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Read User Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Read User Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read User Profile": {
+      "main": [
+        [
+          {
+            "node": "Build User Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "7c3be58e-1a63-426c-90c9-0b1f4b7f1df3",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
