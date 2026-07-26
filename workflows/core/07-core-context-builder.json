@@ -1,0 +1,135 @@
+{
+  "name": "Concierge OS - Context Builder",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "96a164c8-b33e-44f4-be8f-f70c036ba826",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "requestText"
+            },
+            {
+              "name": "userContext",
+              "type": "object"
+            },
+            {
+              "name": "calendarEvents",
+              "type": "array"
+            },
+            {
+              "name": "now"
+            }
+          ]
+        }
+      },
+      "id": "180d2323-dd91-4df8-a699-db73a75044eb",
+      "name": "Called by Main Orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -760,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json || {};\n\nconst sampleUserContext = {\n  timezone: 'Asia/Dubai',\n  identity: {\n    name: 'Savaş',\n    language: 'Turkish'\n  },\n  locations: {\n    home: 'Palm Jumeirah, Dubai',\n    work: 'Abu Dhabi'\n  },\n  schedule: {\n    mondayTuesday: 'Arrives Dubai around 18:30-19:00',\n    wednesdayThursday: 'Often works from home',\n    weekend: 'Generally flexible'\n  },\n  goals: {\n    fitness: 'Gym, boxing, padel, tennis, swimming, walking',\n    social: 'Build a quality international social circle in Dubai',\n    style: 'Stay well-groomed, stylish and confident',\n    dating: 'Approach women naturally and respectfully and build genuine relationships',\n    personalGrowth: 'Stoicism, confidence, conversation, storytelling, leadership',\n    career: 'Cyber Security Architect'\n  },\n  preferences: {\n    venues: 'Bars, rooftops, lounges, beach clubs, social activities',\n    memberships: 'Privilee, InterNations, Meetup'\n  }\n};\n\nreturn [{\n  json: {\n    requestText: input.requestText || 'Bu akşam ne yapayım?',\n    userContext: Object.keys(input.userContext || {}).length\n      ? input.userContext\n      : sampleUserContext,\n    calendarEvents: Array.isArray(input.calendarEvents)\n      ? input.calendarEvents\n      : [],\n    now: input.now || new Date().toISOString()\n  }\n}];"
+      },
+      "id": "b262bcd0-8d00-4815-92a1-465617daf395",
+      "name": "Normalize Context Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst requestText = String(\n  input.requestText ??\n  input.text ??\n  input.message ??\n  ''\n).trim();\n\nconst userContext = input.userContext ?? {};\nconst calendarEvents = Array.isArray(input.calendarEvents)\n  ? input.calendarEvents\n  : Array.isArray(input.events)\n    ? input.events\n    : [];\n\nconst now = input.now ? new Date(input.now) : new Date();\n\nif (Number.isNaN(now.getTime())) {\n  throw new Error('Invalid now value supplied to Context Builder.');\n}\n\nconst dubaiFormatter = new Intl.DateTimeFormat('en-CA', {\n  timeZone: 'Asia/Dubai',\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n  hour: '2-digit',\n  minute: '2-digit',\n  second: '2-digit',\n  hour12: false,\n  weekday: 'long'\n});\n\nconst parts = dubaiFormatter.formatToParts(now)\n  .reduce((acc, part) => {\n    acc[part.type] = part.value;\n    return acc;\n  }, {});\n\nconst currentDate = `${parts.year}-${parts.month}-${parts.day}`;\nconst currentTime = `${parts.hour}:${parts.minute}`;\nconst weekday = parts.weekday;\n\nconst weekdayIndex = {\n  Sunday: 0,\n  Monday: 1,\n  Tuesday: 2,\n  Wednesday: 3,\n  Thursday: 4,\n  Friday: 5,\n  Saturday: 6\n}[weekday];\n\nconst isWeekend = weekdayIndex === 0 || weekdayIndex === 6;\nconst isWorkday = !isWeekend;\nconst currentHour = Number(parts.hour);\n\nconst isMorning = currentHour >= 5 && currentHour < 12;\nconst isAfternoon = currentHour >= 12 && currentHour < 17;\nconst isEvening = currentHour >= 17 && currentHour < 22;\nconst isNight = currentHour >= 22 || currentHour < 5;\n\nconst isMondayOrTuesday = weekdayIndex === 1 || weekdayIndex === 2;\nconst isWednesdayOrThursday = weekdayIndex === 3 || weekdayIndex === 4;\nconst isFriday = weekdayIndex === 5;\n\nconst normalizeEvent = (event) => {\n  const startValue =\n    event.start?.dateTime ??\n    event.start?.date ??\n    event.start ??\n    event.start_time ??\n    event.startTime ??\n    null;\n\n  const endValue =\n    event.end?.dateTime ??\n    event.end?.date ??\n    event.end ??\n    event.end_time ??\n    event.endTime ??\n    null;\n\n  const start = startValue ? new Date(startValue) : null;\n  const end = endValue ? new Date(endValue) : null;\n\n  return {\n    title: event.summary ?? event.title ?? event.name ?? 'Busy',\n    start: start && !Number.isNaN(start.getTime()) ? start.toISOString() : startValue,\n    end: end && !Number.isNaN(end.getTime()) ? end.toISOString() : endValue,\n    location: event.location ?? '',\n    description: event.description ?? '',\n    source: event.source ?? 'google_calendar',\n    raw: event\n  };\n};\n\nconst normalizedEvents = calendarEvents\n  .map(normalizeEvent)\n  .filter(event => event.start);\n\nconst startOfTodayDubai = new Date(`${currentDate}T00:00:00+04:00`);\nconst endOfTodayDubai = new Date(`${currentDate}T23:59:59+04:00`);\n\nconst tomorrowDate = new Date(startOfTodayDubai.getTime() + 24 * 60 * 60 * 1000);\nconst endOfTomorrow = new Date(tomorrowDate.getTime() + 24 * 60 * 60 * 1000 - 1);\n\nconst startOfWeek = new Date(startOfTodayDubai);\nconst daysSinceMonday = (weekdayIndex + 6) % 7;\nstartOfWeek.setDate(startOfWeek.getDate() - daysSinceMonday);\n\nconst endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);\n\nconst parseTime = value => {\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n};\n\nconst overlaps = (event, rangeStart, rangeEnd) => {\n  const start = parseTime(event.start);\n  const end = parseTime(event.end) ?? start;\n  if (!start) return false;\n  return start <= rangeEnd && end >= rangeStart;\n};\n\nconst todayEvents = normalizedEvents.filter(event =>\n  overlaps(event, startOfTodayDubai, endOfTodayDubai)\n);\n\nconst tomorrowEvents = normalizedEvents.filter(event =>\n  overlaps(event, tomorrowDate, endOfTomorrow)\n);\n\nconst weekEvents = normalizedEvents.filter(event =>\n  overlaps(event, startOfWeek, endOfWeek)\n);\n\nconst eventText = event =>\n  `${event.title} ${event.description} ${event.location}`.toLocaleLowerCase('tr-TR');\n\nconst countMatches = patterns =>\n  weekEvents.filter(event =>\n    patterns.some(pattern => eventText(event).includes(pattern))\n  ).length;\n\nconst fitnessCount = countMatches([\n  'gym', 'boxing', 'boks', 'fitness', 'padel', 'tennis',\n  'swim', 'yuzme', 'walk', 'yuruyus', 'workout'\n]);\n\nconst socialCount = countMatches([\n  'networking', 'internations', 'meetup', 'social', 'mixer',\n  'jazz', 'stand-up', 'stand up', 'dinner', 'bar', 'party'\n]);\n\nconst learningCount = countMatches([\n  'learning', 'course', 'training', 'workshop', 'ai',\n  'cyber', 'security', 'conference', 'toastmasters'\n]);\n\nconst financeCount = countMatches([\n  'finance', 'budget', 'investment', 'yatirim', 'review'\n]);\n\nconst getBusyWindows = events =>\n  events.map(event => ({\n    title: event.title,\n    start: event.start,\n    end: event.end,\n    location: event.location\n  }));\n\nconst todayBusyWindows = getBusyWindows(todayEvents);\n\nconst defaultEveningStart =\n  isMondayOrTuesday ? '19:30' :\n  isWednesdayOrThursday ? '18:30' :\n  isFriday || isWeekend ? '17:00' :\n  '18:30';\n\nconst preferredPlanningWindow = {\n  start: defaultEveningStart,\n  end: '23:00',\n  reason: isMondayOrTuesday\n    ? 'Allow Abu Dhabi to Dubai commute and preparation time.'\n    : isWednesdayOrThursday\n      ? 'Often works from home, so earlier evening activities are realistic.'\n      : 'Flexible day with room for social, fitness, or lifestyle activities.'\n};\n\nconst commuteConstraint = {\n  active: isMondayOrTuesday,\n  homeArrivalEstimate: isMondayOrTuesday ? '18:30-19:00' : null,\n  earliestSafeDubaiEventTime: isMondayOrTuesday ? '19:30' : null\n};\n\nconst identity = userContext.identity ?? {};\nconst locations = userContext.locations ?? {};\nconst goals = userContext.goals ?? {};\nconst preferences = userContext.preferences ?? {};\nconst schedule = userContext.schedule ?? {};\n\nconst derivedContext = {\n  isWeekend,\n  isWorkday,\n  isMorning,\n  isAfternoon,\n  isEvening,\n  isNight,\n  isMondayOrTuesday,\n  isWednesdayOrThursday,\n  isFriday,\n  commuteConstraint,\n  preferredPlanningWindow,\n  fitnessActivitiesThisWeek: fitnessCount,\n  socialActivitiesThisWeek: socialCount,\n  learningActivitiesThisWeek: learningCount,\n  financeReviewsThisWeek: financeCount,\n  needsMoreFitness: fitnessCount < 3,\n  needsMoreSocial: socialCount < 2,\n  needsFinanceReview: financeCount < 1,\n  todayEventCount: todayEvents.length,\n  tomorrowEventCount: tomorrowEvents.length,\n  weekEventCount: weekEvents.length,\n  calendarLoad:\n    weekEvents.length >= 12 ? 'high' :\n    weekEvents.length >= 7 ? 'medium' :\n    'low'\n};\n\nconst recommendationHints = [];\n\nif (derivedContext.needsMoreFitness) {\n  recommendationHints.push('Prioritize a fitness activity if calendar and energy allow.');\n}\n\nif (derivedContext.needsMoreSocial) {\n  recommendationHints.push('Consider a high-quality social or networking opportunity.');\n}\n\nif (derivedContext.needsFinanceReview) {\n  recommendationHints.push('Reserve a short finance review block this week.');\n}\n\nif (commuteConstraint.active) {\n  recommendationHints.push('Do not recommend early-evening Dubai events before 19:30.');\n}\n\nif (derivedContext.calendarLoad === 'high') {\n  recommendationHints.push('Protect recovery time and avoid overloading the week.');\n}\n\nconst context = {\n  generatedAt: now.toISOString(),\n  timezone: userContext.timezone ?? 'Asia/Dubai',\n  request: {\n    text: requestText\n  },\n  temporalContext: {\n    currentDate,\n    currentTime,\n    weekday,\n    weekdayIndex\n  },\n  userContext: {\n    identity,\n    locations,\n    schedule,\n    goals,\n    preferences,\n    raw: userContext.rawProfile ?? userContext\n  },\n  calendarContext: {\n    today: todayBusyWindows,\n    tomorrow: getBusyWindows(tomorrowEvents),\n    thisWeek: getBusyWindows(weekEvents)\n  },\n  derivedContext,\n  recommendationHints\n};\n\nconst promptContext = [\n  `Current Dubai date: ${currentDate}`,\n  `Current Dubai time: ${currentTime}`,\n  `Weekday: ${weekday}`,\n  `User: ${identity.name ?? 'Savaş'}`,\n  `Home: ${locations.home ?? 'Palm Jumeirah, Dubai'}`,\n  `Work: ${locations.work ?? 'Abu Dhabi'}`,\n  `Request: ${requestText || 'No explicit request supplied'}`,\n  `Calendar load: ${derivedContext.calendarLoad}`,\n  `Today events: ${todayEvents.length}`,\n  `Tomorrow events: ${tomorrowEvents.length}`,\n  `Fitness activities this week: ${fitnessCount}`,\n  `Social activities this week: ${socialCount}`,\n  `Learning activities this week: ${learningCount}`,\n  `Finance reviews this week: ${financeCount}`,\n  `Preferred planning window: ${preferredPlanningWindow.start}-${preferredPlanningWindow.end}`,\n  ...recommendationHints.map(hint => `Hint: ${hint}`)\n].join('\\n');\n\nreturn [{\n  json: {\n    success: true,\n    context,\n    promptContext,\n    summary: {\n      requestText,\n      weekday,\n      currentTime,\n      todayEventCount: todayEvents.length,\n      weekEventCount: weekEvents.length,\n      calendarLoad: derivedContext.calendarLoad,\n      preferredPlanningWindow\n    }\n  }\n}];\n"
+      },
+      "id": "4cde4e9a-3896-423a-9526-43198a4854cd",
+      "name": "Build Unified Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Context Builder\n\nCombines:\n- User Context from Memory Manager\n- Calendar events from Main Orchestrator\n- User request\n- Dubai date and time\n\nCalculates:\n- Workday/weekend\n- Morning/afternoon/evening\n- Monday/Tuesday commute restriction\n- Today/tomorrow/weekly calendar load\n- Weekly fitness/social/learning/finance counts\n- Preferred planning window\n- Recommendation hints\n\n### Manual test\n\nRun without input.\n\nExpected output:\n- `success: true`\n- `context`\n- `promptContext`\n- `summary`\n\n### Main Orchestrator inputs\n\n- `requestText`\n- `userContext`\n- `calendarEvents`\n- optional `now`",
+        "height": 440,
+        "width": 440
+      },
+      "id": "2b47051a-24b3-4227-89b8-45a1ba9bb5ed",
+      "name": "CONTEXT BUILDER NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -590
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Context Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Main Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Normalize Context Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Context Input": {
+      "main": [
+        [
+          {
+            "node": "Build Unified Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "d31dacf7-ad45-4bf0-85ed-f92ca06dccdc",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
