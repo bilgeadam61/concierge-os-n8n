@@ -1,0 +1,254 @@
+{
+  "name": "Concierge OS - Daily Brief",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "74ce620e-4c71-440b-83af-dae0689e3a0e",
+      "name": "Every Day 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const start=new Date(); const end=new Date(start); end.setHours(23,59,59,999);\nreturn [{json:{timeMin:start.toISOString(),timeMax:end.toISOString(),chatId:$env.TELEGRAM_CHAT_ID}}];"
+      },
+      "id": "0cfd6462-8d55-4912-98b2-5bde5716d895",
+      "name": "Set Today Window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "Primary"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $('Set Today Window').item.json.timeMin }}",
+        "timeMax": "={{ $('Set Today Window').item.json.timeMax }}",
+        "options": {}
+      },
+      "id": "89760d4d-2094-435a-a002-1da232316758",
+      "name": "Read Today's Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -300,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_ME",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const events=$input.all().map(i=>i.json).filter(e=>e.start);\nconst prompt=`Create today's concise Concierge Brief in Turkish.\nDate: ${new Date().toISOString()}\nCalendar: ${JSON.stringify(events)}\nInclude: top 3 priorities, workout, social opportunity category (do not invent a live event), outfit/grooming note, one social-confidence task, stoic reminder, and one exceptional action.`;\nreturn [{json:{chatId:$('Set Today Window').first().json.chatId,systemPrompt:\"You are Concierge OS, Sava\\u015f's proactive personal chief of staff in Dubai.\\nReply in Turkish unless the incoming message is clearly English.\\nUser context:\\n- Home: Palm Jumeirah, Dubai. Work: Abu Dhabi.\\n- Monday and Tuesday: usually reaches Dubai around 18:30-19:00.\\n- Wednesday and Thursday: often works from home.\\n- Friday-Sunday: generally flexible.\\n- Interests: gym, boxing, padel, tennis, swimming, walking, Privilee, InterNations, Meetup, jazz, stand-up, international and Turkish communities, networking, stoicism, life coaching, healthy food, grooming, style, cybersecurity, AI and travel.\\n- Priorities: become fit, continuously well-groomed, stylish, socially confident, respectful and comfortable approaching women, good at conversation and building genuine connections.\\n- Prefer high-quality interactive events, international/career-oriented crowds, bars/rooftops/lounges/beach clubs and activity-based environments.\\n- Avoid manipulative dating tactics. Prioritize confidence, consent, respect, social awareness and authentic connection.\\nEvaluate recommendations for calendar fit, travel, cost, social value, audience fit, novelty, fitness, personal growth and ability to attend alone.\\nBe concise and actionable. Never claim a live event was found unless it appears in supplied source data. Ask for approval before calendar changes, messages, reservations or purchases.\",userPrompt:prompt}}];"
+      },
+      "id": "67a4abab-292f-42e8-aa56-4d7999c39e46",
+      "name": "Build Daily Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: $env.OPENAI_MODEL || 'gpt-5-mini', instructions: $json.systemPrompt, input: $json.userPrompt }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "3d5feff6-c6e2-457c-b83c-756017a755e4",
+      "name": "Generate Daily Brief",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_ME",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let text=$json.output_text;\nif(!text&&Array.isArray($json.output)) text=$json.output.flatMap(o=>o.content||[]).map(c=>c.text||'').join('\\n');\nreturn [{json:{chatId:$('Build Daily Prompt').first().json.chatId,text:(text||'Daily brief generation failed.').slice(0,4000)}}];"
+      },
+      "id": "4a521fc6-41d7-467d-bcd8-e1a5e13203f1",
+      "name": "Parse Brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8edfb728-d83f-43c7-9171-18f6aa5e789d",
+      "name": "Send Daily Brief",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        650,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Set TELEGRAM_CHAT_ID and OPENAI_MODEL as environment variables. Workflow timezone is Asia/Dubai.",
+        "height": 160,
+        "width": 340
+      },
+      "id": "7a00da4a-4809-4eea-9baf-fe2dfc492adf",
+      "name": "DAILY SETUP",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -260
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Day 08:00": {
+      "main": [
+        [
+          {
+            "node": "Set Today Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Today Window": {
+      "main": [
+        [
+          {
+            "node": "Read Today's Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Today's Calendar": {
+      "main": [
+        [
+          {
+            "node": "Build Daily Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Daily Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Daily Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Daily Brief": {
+      "main": [
+        [
+          {
+            "node": "Parse Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Brief": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "7c57c667-3849-4971-9697-8b41140ede0b",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

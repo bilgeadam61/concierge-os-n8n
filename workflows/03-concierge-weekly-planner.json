@@ -1,0 +1,239 @@
+{
+  "name": "Concierge OS - Weekly Planner",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 17 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "fa4bf635-7f58-40c8-9549-3900c8372ae2",
+      "name": "Sunday 17:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now=new Date(); const day=now.getDay(); const days=(8-day)%7||7;\nconst start=new Date(now); start.setDate(now.getDate()+days); start.setHours(0,0,0,0);\nconst end=new Date(start); end.setDate(start.getDate()+7);\nreturn [{json:{timeMin:start.toISOString(),timeMax:end.toISOString(),chatId:$env.TELEGRAM_CHAT_ID}}];"
+      },
+      "id": "5948ff2a-fa65-4d7c-9b15-46476d36566b",
+      "name": "Set Next Week",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -530,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "Primary"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $('Set Next Week').item.json.timeMin }}",
+        "timeMax": "={{ $('Set Next Week').item.json.timeMax }}",
+        "options": {}
+      },
+      "id": "16624ebc-5cc5-4c95-8351-86108008d0ba",
+      "name": "Read Next Week",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -290,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_ME",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const events=$input.all().map(i=>i.json).filter(e=>e.start);\nconst prompt=`Build a balanced weekly plan in Turkish for the next seven days.\nCalendar: ${JSON.stringify(events)}\nTargets: 3 fitness sessions, 1 strong networking activity, 1 social activity, 1 new experience, 1 personal-development block, 1 recovery block, finance review, weekly planning, and open space for a date or spontaneous plan.\nRespect Abu Dhabi commute Monday/Tuesday. Do not invent named live events. Mark suggested discovery slots and ask approval before calendar changes.`;\nreturn [{json:{chatId:$('Set Next Week').first().json.chatId,systemPrompt:\"You are Concierge OS, Sava\\u015f's proactive personal chief of staff in Dubai.\\nReply in Turkish unless the incoming message is clearly English.\\nUser context:\\n- Home: Palm Jumeirah, Dubai. Work: Abu Dhabi.\\n- Monday and Tuesday: usually reaches Dubai around 18:30-19:00.\\n- Wednesday and Thursday: often works from home.\\n- Friday-Sunday: generally flexible.\\n- Interests: gym, boxing, padel, tennis, swimming, walking, Privilee, InterNations, Meetup, jazz, stand-up, international and Turkish communities, networking, stoicism, life coaching, healthy food, grooming, style, cybersecurity, AI and travel.\\n- Priorities: become fit, continuously well-groomed, stylish, socially confident, respectful and comfortable approaching women, good at conversation and building genuine connections.\\n- Prefer high-quality interactive events, international/career-oriented crowds, bars/rooftops/lounges/beach clubs and activity-based environments.\\n- Avoid manipulative dating tactics. Prioritize confidence, consent, respect, social awareness and authentic connection.\\nEvaluate recommendations for calendar fit, travel, cost, social value, audience fit, novelty, fitness, personal growth and ability to attend alone.\\nBe concise and actionable. Never claim a live event was found unless it appears in supplied source data. Ask for approval before calendar changes, messages, reservations or purchases.\",userPrompt:prompt}}];"
+      },
+      "id": "06475f42-06e0-42ad-9d12-9c9422722788",
+      "name": "Build Weekly Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: $env.OPENAI_MODEL || 'gpt-5-mini', instructions: $json.systemPrompt, input: $json.userPrompt }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "e3f17c99-ef85-4628-9b03-37427a53243f",
+      "name": "Generate Weekly Plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        210,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_ME",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let text=$json.output_text;\nif(!text&&Array.isArray($json.output)) text=$json.output.flatMap(o=>o.content||[]).map(c=>c.text||'').join('\\n');\nreturn [{json:{chatId:$('Build Weekly Prompt').first().json.chatId,text:(text||'Weekly plan generation failed.').slice(0,4000)}}];"
+      },
+      "id": "a4bba550-43c2-4025-9646-6055274cbaac",
+      "name": "Parse Weekly Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "17a8a224-4736-4822-8d75-7c6d2aa140f6",
+      "name": "Send Weekly Plan",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        680,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Sunday 17:00": {
+      "main": [
+        [
+          {
+            "node": "Set Next Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Next Week": {
+      "main": [
+        [
+          {
+            "node": "Read Next Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Next Week": {
+      "main": [
+        [
+          {
+            "node": "Build Weekly Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Weekly Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Weekly Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Weekly Plan": {
+      "main": [
+        [
+          {
+            "node": "Parse Weekly Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Weekly Plan": {
+      "main": [
+        [
+          {
+            "node": "Send Weekly Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "c1f94906-e083-4077-ac5e-4245dbf2edf4",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

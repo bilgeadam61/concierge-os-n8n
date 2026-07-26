@@ -1,0 +1,263 @@
+{
+  "name": "Concierge OS - Main Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "fd0d3df0-be32-48d9-b7a7-943fac6774c5",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -920,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const m = $json.message || {};\nconst text = m.text || '';\nconst chatId = m.chat?.id;\nif (!chatId || !text) throw new Error('Telegram message text/chat ID missing');\nconst now = new Date();\nconst end = new Date(now.getTime() + 7*24*60*60*1000);\nreturn [{json:{\n  chatId,\n  text,\n  firstName: m.from?.first_name || 'Savaş',\n  timeMin: now.toISOString(),\n  timeMax: end.toISOString(),\n  systemPrompt: \"You are Concierge OS, Sava\\u015f's proactive personal chief of staff in Dubai.\\nReply in Turkish unless the incoming message is clearly English.\\nUser context:\\n- Home: Palm Jumeirah, Dubai. Work: Abu Dhabi.\\n- Monday and Tuesday: usually reaches Dubai around 18:30-19:00.\\n- Wednesday and Thursday: often works from home.\\n- Friday-Sunday: generally flexible.\\n- Interests: gym, boxing, padel, tennis, swimming, walking, Privilee, InterNations, Meetup, jazz, stand-up, international and Turkish communities, networking, stoicism, life coaching, healthy food, grooming, style, cybersecurity, AI and travel.\\n- Priorities: become fit, continuously well-groomed, stylish, socially confident, respectful and comfortable approaching women, good at conversation and building genuine connections.\\n- Prefer high-quality interactive events, international/career-oriented crowds, bars/rooftops/lounges/beach clubs and activity-based environments.\\n- Avoid manipulative dating tactics. Prioritize confidence, consent, respect, social awareness and authentic connection.\\nEvaluate recommendations for calendar fit, travel, cost, social value, audience fit, novelty, fitness, personal growth and ability to attend alone.\\nBe concise and actionable. Never claim a live event was found unless it appears in supplied source data. Ask for approval before calendar changes, messages, reservations or purchases.\"\n}}];"
+      },
+      "id": "edd1412c-8c22-41ea-b603-0e342b8b27c3",
+      "name": "Normalize Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "Primary"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $('Normalize Request').item.json.timeMin }}",
+        "timeMax": "={{ $('Normalize Request').item.json.timeMax }}",
+        "options": {
+          "timeZone": {
+            "__rl": true,
+            "value": "Asia/Dubai",
+            "mode": "list",
+            "cachedResultName": "Asia/Dubai"
+          }
+        }
+      },
+      "id": "cfeceff6-c648-4a60-b5b4-003f844bea95",
+      "name": "Read Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -430,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_ME",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const req = $('Normalize Request').first().json;\nconst events = $input.all().map(i => {\n  const e=i.json||{};\n  return {\n    summary:e.summary||e.name||'Busy',\n    start:e.start?.dateTime||e.start?.date||e.start,\n    end:e.end?.dateTime||e.end?.date||e.end,\n    location:e.location||''\n  };\n}).filter(e=>e.start);\nconst intent = /tonight|bu akşam|today|bugün/i.test(req.text) ? 'today_advice'\n  : /boxing|gym|padel|tennis|spor/i.test(req.text) ? 'sports'\n  : /wear|giy|outfit|style|tarz|bakım/i.test(req.text) ? 'style'\n  : /date|kadın|woman|flirt|approach/i.test(req.text) ? 'social_confidence'\n  : /trip|travel|weekend|seyahat|kaçamak/i.test(req.text) ? 'travel'\n  : 'general';\nconst userPrompt = `Current date/time: ${new Date().toISOString()}\nIntent: ${intent}\nUser message: ${req.text}\nUpcoming calendar events (next 7 days):\n${JSON.stringify(events, null, 2)}\n\nGive the best useful response now. If the request needs current public event data that was not supplied, state that discovery integration is not connected yet and give a practical plan using the calendar context without inventing events.`;\nreturn [{json:{chatId:req.chatId, systemPrompt:req.systemPrompt, userPrompt}}];"
+      },
+      "id": "cb4e2016-9da4-45fc-9d96-145e9a36dd1d",
+      "name": "Build Concierge Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: $env.OPENAI_MODEL || 'gpt-5-mini', instructions: $json.systemPrompt, input: $json.userPrompt }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "e3ac76ea-39f7-493a-a2ae-8a1439954959",
+      "name": "Ask OpenAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        80,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_ME",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const req = $('Build Concierge Prompt').first().json;\nconst r = $json;\nlet text = r.output_text;\nif (!text && Array.isArray(r.output)) {\n  text = r.output.flatMap(o => o.content || []).map(c => c.text || c.output_text || '').filter(Boolean).join('\\n');\n}\nif (!text) text = 'I could not generate a response. Check the OpenAI credential and model.';\nreturn [{json:{chatId:req.chatId, text:text.slice(0,4000)}}];"
+      },
+      "id": "b2ccd88f-f8a3-422a-ac03-75e4c4d5b0fb",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        330,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "9be54eeb-3bfc-48b5-aa3d-e7c7a615c93d",
+      "name": "Reply in Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        580,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_ME",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Manual setup\n1. Select Telegram credentials in Trigger and Reply nodes.\n2. Select Google Calendar credentials.\n3. Select OpenAI credentials in HTTP Request.\n4. Set OPENAI_MODEL environment variable if desired.\n5. Activate after a successful manual test.",
+        "height": 250,
+        "width": 360
+      },
+      "id": "83d63e1e-862b-4e1f-85bc-abd8f4d31c34",
+      "name": "SETUP NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        -360
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "Read Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Calendar": {
+      "main": [
+        [
+          {
+            "node": "Build Concierge Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Concierge Prompt": {
+      "main": [
+        [
+          {
+            "node": "Ask OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Reply in Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "a55bf602-3a97-40af-b7c1-df7cf0567601",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

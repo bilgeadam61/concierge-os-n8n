@@ -1,0 +1,111 @@
+{
+  "name": "Concierge OS - Opportunity Scoring",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "title"
+            },
+            {
+              "name": "calendarCompatibility",
+              "type": "number"
+            },
+            {
+              "name": "travelConvenience",
+              "type": "number"
+            },
+            {
+              "name": "socialQuality",
+              "type": "number"
+            },
+            {
+              "name": "audienceFit",
+              "type": "number"
+            },
+            {
+              "name": "fitnessValue",
+              "type": "number"
+            },
+            {
+              "name": "growthValue",
+              "type": "number"
+            },
+            {
+              "name": "networkingValue",
+              "type": "number"
+            },
+            {
+              "name": "organicConnectionPotential",
+              "type": "number"
+            },
+            {
+              "name": "funNovelty",
+              "type": "number"
+            },
+            {
+              "name": "valueForMoney",
+              "type": "number"
+            },
+            {
+              "name": "soloFriendly",
+              "type": "number"
+            },
+            {
+              "name": "penalty",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "11e0aa0b-4f3e-4d90-9cfc-2837f7bdbd7c",
+      "name": "Called by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const x=$json;\nconst clamp=v=>Math.max(0,Math.min(10,Number(v||0)));\nconst score =\n clamp(x.calendarCompatibility)*1.5 +\n clamp(x.travelConvenience)*1.0 +\n clamp(x.socialQuality)*1.5 +\n clamp(x.audienceFit)*1.0 +\n clamp(x.fitnessValue)*0.8 +\n clamp(x.growthValue)*0.8 +\n clamp(x.networkingValue)*0.8 +\n clamp(x.organicConnectionPotential)*0.8 +\n clamp(x.funNovelty)*0.7 +\n clamp(x.valueForMoney)*0.6 +\n clamp(x.soloFriendly)*0.5 -\n Math.max(0,Number(x.penalty||0));\nconst finalScore=Math.max(0,Math.min(100,Math.round(score)));\nconst classification=finalScore>=85?'Must Go':finalScore>=70?'Strong Match':finalScore>=55?'Good Alternative':'Do Not Recommend';\nreturn [{json:{...x,score:finalScore,classification}}];"
+      },
+      "id": "1da26498-18e9-4fc1-b333-f01d2f658b9e",
+      "name": "Calculate Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -130,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Called by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Calculate Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "92b1153c-73b4-4fbc-9985-9326a760ef94",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
