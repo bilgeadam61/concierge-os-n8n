@@ -1,0 +1,137 @@
+{
+  "name": "Concierge OS - Life Strategy Engine",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "4da7ab8f-d3e8-4438-b1c9-ba7c8515be62",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "context",
+              "type": "object"
+            },
+            {
+              "name": "lifeImpactOutput",
+              "type": "object"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "4a8d656a-6760-4732-8a88-c8109666cbce",
+      "name": "Called by Life Impact Engine",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -800,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleLifeImpactOutput = {\n  success: true,\n  result: {\n    topLifeOpportunities: [\n      {\n        lifeRank: 1,\n        id: 'social-1',\n        title: 'International Social Mixer',\n        category: 'social',\n        source: 'InterNations',\n        start: '2026-08-01T19:30:00+04:00',\n        end: '2026-08-01T22:00:00+04:00',\n        location: 'Dubai Marina',\n        estimatedCost: 120,\n        currency: 'AED',\n        finalScore: 92,\n        lifeImpactScore: 95,\n        personalFitScore: 90,\n        eventScore: 88,\n        confidenceScore: 90,\n        lifeClassification: 'Transformative Opportunity',\n        reason: 'Strong dating and social-circle potential.'\n      },\n      {\n        lifeRank: 2,\n        id: 'nightlife-1',\n        title: 'Rooftop Social Night',\n        category: 'nightlife',\n        source: 'TimeOut Dubai',\n        start: '2026-08-01T22:30:00+04:00',\n        end: '2026-08-02T01:00:00+04:00',\n        location: 'Palm Jumeirah',\n        estimatedCost: 180,\n        currency: 'AED',\n        finalScore: 87,\n        lifeImpactScore: 90,\n        personalFitScore: 88,\n        eventScore: 82,\n        confidenceScore: 82,\n        lifeClassification: 'High Life Impact',\n        reason: 'Strong nightlife and dating potential.'\n      },\n      {\n        lifeRank: 3,\n        id: 'fitness-1',\n        title: 'Boxing Class',\n        category: 'fitness',\n        source: 'Privilee',\n        start: '2026-08-02T11:00:00+04:00',\n        end: '2026-08-02T12:00:00+04:00',\n        location: 'Palm Jumeirah',\n        estimatedCost: 0,\n        currency: 'AED',\n        finalScore: 83,\n        lifeImpactScore: 84,\n        personalFitScore: 91,\n        eventScore: 80,\n        confidenceScore: 95,\n        lifeClassification: 'High Life Impact',\n        reason: 'Supports fitness and confidence.'\n      },\n      {\n        lifeRank: 4,\n        id: 'travel-1',\n        title: 'Weekend Muscat Escape',\n        category: 'travel',\n        source: 'Skyscanner',\n        start: '2026-08-02T14:00:00+04:00',\n        end: '2026-08-03T20:00:00+04:00',\n        location: 'Muscat',\n        estimatedCost: 850,\n        currency: 'AED',\n        finalScore: 81,\n        lifeImpactScore: 92,\n        personalFitScore: 74,\n        eventScore: 79,\n        confidenceScore: 88,\n        lifeClassification: 'High Life Impact',\n        reason: 'High travel and novelty value.'\n      }\n    ]\n  }\n};\n\nconst source =\n  input.lifeImpactOutput ||\n  (\n    input.result?.topLifeOpportunities\n      ? input\n      : sampleLifeImpactOutput\n  );\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu hafta sonunu planla',\n      channel: 'manual_test',\n      userId: 'savas'\n    },\n    context: input.context || {\n      timezone: 'Asia/Dubai',\n      userContext: {\n        identity: { name: 'Savaş', language: 'Turkish' }\n      },\n      calendarContext: {\n        thisWeek: []\n      },\n      derivedContext: {\n        calendarLoad: 'low',\n        isWeekend: true,\n        needsMoreSocial: true,\n        needsMoreFitness: true,\n        needsFinanceReview: false,\n        preferredPlanningWindow: {\n          start: '17:00',\n          end: '23:00'\n        }\n      },\n      userState: {\n        energyLevel: 'high',\n        mood: 'social',\n        budgetAED: 1200,\n        maxTravelMinutes: 45\n      }\n    },\n    opportunities:\n      source.result?.topLifeOpportunities ||\n      source.topLifeOpportunities ||\n      [],\n    metadata: input.metadata || {\n      correlationId: `life-strategy-${Date.now()}`,\n      testMode: true\n    }\n  }\n}];\n"
+      },
+      "id": "e6d0579d-99e7-494e-8c0e-ab7225dd36f3",
+      "name": "Normalize Strategy Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nconst opportunities = Array.isArray(input.opportunities)\n  ? input.opportunities\n  : [];\n\nconst context = input.context || {};\nconst derived =\n  context.derivedContext ||\n  context.derived ||\n  {};\nconst userState = context.userState || {};\nconst metadata = input.metadata || {};\n\nconst parseDate = value => {\n  if (!value) return null;\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n};\n\nconst overlaps = (aStart, aEnd, bStart, bEnd) => {\n  if (!aStart || !aEnd || !bStart || !bEnd) return false;\n  return aStart < bEnd && aEnd > bStart;\n};\n\nconst categoryPriority = {\n  dating: 100,\n  social: 95,\n  nightlife: 90,\n  travel: 85,\n  fitness: 75,\n  wellness: 70,\n  style: 65,\n  career: 55,\n  learning: 50,\n  finance: 40,\n  general: 45\n};\n\nconst categoryGroup = category => {\n  const value = String(category || 'general').toLowerCase();\n\n  if (value.includes('dating')) return 'dating';\n  if (value.includes('social') || value.includes('network')) return 'social';\n  if (value.includes('night')) return 'nightlife';\n  if (value.includes('travel') || value.includes('trip')) return 'travel';\n  if (value.includes('fitness') || value.includes('sport')) return 'fitness';\n  if (value.includes('wellness') || value.includes('recovery')) return 'wellness';\n  if (value.includes('style') || value.includes('groom')) return 'style';\n  if (value.includes('career')) return 'career';\n  if (value.includes('learn')) return 'learning';\n  if (value.includes('finance')) return 'finance';\n\n  return 'general';\n};\n\nconst getDayKey = date =>\n  date\n    ? new Intl.DateTimeFormat('en-CA', {\n        timeZone: 'Asia/Dubai',\n        year: 'numeric',\n        month: '2-digit',\n        day: '2-digit'\n      }).format(date)\n    : 'unscheduled';\n\nconst getTimeLabel = date =>\n  date\n    ? new Intl.DateTimeFormat('en-GB', {\n        timeZone: 'Asia/Dubai',\n        hour: '2-digit',\n        minute: '2-digit',\n        hour12: false\n      }).format(date)\n    : null;\n\nconst getWeekday = date =>\n  date\n    ? new Intl.DateTimeFormat('en-US', {\n        timeZone: 'Asia/Dubai',\n        weekday: 'long'\n      }).format(date)\n    : 'Unscheduled';\n\nconst budgetAED = Number(userState.budgetAED);\nlet plannedCost = 0;\n\nconst prepared = opportunities.map((item, index) => {\n  const start = parseDate(item.start);\n  const end = parseDate(item.end);\n  const group = categoryGroup(item.category);\n\n  const basePriority =\n    Number(item.finalScore ?? item.lifeImpactScore ?? 0) +\n    (categoryPriority[group] || 0) * 0.10;\n\n  let strategyAdjustment = 0;\n  const strategyReasons = [];\n\n  if (\n    derived.needsMoreSocial === true &&\n    ['dating', 'social', 'nightlife'].includes(group)\n  ) {\n    strategyAdjustment += 8;\n    strategyReasons.push('Social target is below goal.');\n  }\n\n  if (\n    derived.needsMoreFitness === true &&\n    group === 'fitness'\n  ) {\n    strategyAdjustment += 6;\n    strategyReasons.push('Fitness target is below goal.');\n  }\n\n  if (\n    derived.calendarLoad === 'high' &&\n    !['wellness'].includes(group)\n  ) {\n    strategyAdjustment -= 10;\n    strategyReasons.push('Calendar load is high.');\n  }\n\n  if (\n    String(userState.mood || '').toLowerCase() === 'social' &&\n    ['dating', 'social', 'nightlife'].includes(group)\n  ) {\n    strategyAdjustment += 5;\n    strategyReasons.push('Current mood is social.');\n  }\n\n  if (\n    String(userState.energyLevel || '').toLowerCase() === 'low' &&\n    ['nightlife', 'travel', 'fitness'].includes(group)\n  ) {\n    strategyAdjustment -= 8;\n    strategyReasons.push('Current energy is low.');\n  }\n\n  const cost = Number(item.estimatedCost ?? 0);\n\n  if (Number.isFinite(cost) && Number.isFinite(budgetAED)) {\n    if (cost <= budgetAED) {\n      strategyAdjustment += 2;\n      strategyReasons.push('Within stated budget.');\n    } else {\n      strategyAdjustment -= 12;\n      strategyReasons.push('Exceeds stated budget.');\n    }\n  }\n\n  return {\n    ...item,\n    startDate: start,\n    endDate: end,\n    strategyGroup: group,\n    strategyScore:\n      Math.max(\n        0,\n        Math.min(\n          100,\n          Math.round(basePriority + strategyAdjustment)\n        )\n      ),\n    strategyReasons,\n    originalIndex: index\n  };\n});\n\nprepared.sort((a, b) => {\n  if (b.strategyScore !== a.strategyScore) {\n    return b.strategyScore - a.strategyScore;\n  }\n\n  const aStart = a.startDate?.getTime() ?? Number.MAX_SAFE_INTEGER;\n  const bStart = b.startDate?.getTime() ?? Number.MAX_SAFE_INTEGER;\n\n  return aStart - bStart;\n});\n\nconst selected = [];\nconst rejected = [];\nconst selectedCategories = new Set();\nconst selectedPerDay = new Map();\n\nfor (const item of prepared) {\n  const group = item.strategyGroup;\n  const dayKey = getDayKey(item.startDate);\n  const sameDayCount = selectedPerDay.get(dayKey) || 0;\n  const cost = Number(item.estimatedCost ?? 0);\n\n  if (\n    Number.isFinite(budgetAED) &&\n    Number.isFinite(cost) &&\n    plannedCost + cost > budgetAED\n  ) {\n    rejected.push({\n      id: item.id,\n      title: item.title,\n      reason: 'budget_limit',\n      strategyScore: item.strategyScore\n    });\n    continue;\n  }\n\n  if (sameDayCount >= 3) {\n    rejected.push({\n      id: item.id,\n      title: item.title,\n      reason: 'daily_activity_limit',\n      strategyScore: item.strategyScore\n    });\n    continue;\n  }\n\n  const conflict = selected.find(existing =>\n    overlaps(\n      item.startDate,\n      item.endDate,\n      existing.startDate,\n      existing.endDate\n    )\n  );\n\n  if (conflict) {\n    rejected.push({\n      id: item.id,\n      title: item.title,\n      reason: 'time_conflict',\n      conflictsWith: conflict.id,\n      strategyScore: item.strategyScore\n    });\n    continue;\n  }\n\n  // Avoid too much nightlife without balance.\n  const nightlifeCount =\n    selected.filter(x => x.strategyGroup === 'nightlife').length;\n\n  if (group === 'nightlife' && nightlifeCount >= 2) {\n    rejected.push({\n      id: item.id,\n      title: item.title,\n      reason: 'nightlife_balance_limit',\n      strategyScore: item.strategyScore\n    });\n    continue;\n  }\n\n  selected.push(item);\n  selectedCategories.add(group);\n  selectedPerDay.set(dayKey, sameDayCount + 1);\n\n  if (Number.isFinite(cost)) {\n    plannedCost += cost;\n  }\n\n  if (selected.length >= 6) break;\n}\n\nconst hasSocial =\n  selected.some(item =>\n    ['dating', 'social', 'nightlife'].includes(item.strategyGroup)\n  );\n\nconst hasFitness =\n  selected.some(item => item.strategyGroup === 'fitness');\n\nconst hasRecovery =\n  selected.some(item => item.strategyGroup === 'wellness');\n\nconst strategyWarnings = [];\n\nif (!hasSocial && derived.needsMoreSocial === true) {\n  strategyWarnings.push('No social or dating opportunity was selected.');\n}\n\nif (!hasFitness && derived.needsMoreFitness === true) {\n  strategyWarnings.push('No fitness activity was selected.');\n}\n\nif (\n  selected.filter(item => item.strategyGroup === 'nightlife').length >= 2 &&\n  !hasRecovery\n) {\n  strategyWarnings.push('Consider adding a recovery block after multiple nightlife activities.');\n}\n\nconst dailyPlanMap = new Map();\n\nfor (const item of selected) {\n  const dayKey = getDayKey(item.startDate);\n\n  if (!dailyPlanMap.has(dayKey)) {\n    dailyPlanMap.set(dayKey, {\n      date: dayKey,\n      weekday: getWeekday(item.startDate),\n      activities: []\n    });\n  }\n\n  dailyPlanMap.get(dayKey).activities.push({\n    recommendationId: item.id,\n    title: item.title,\n    category: item.category,\n    strategyGroup: item.strategyGroup,\n    start: item.start,\n    end: item.end,\n    startTime: getTimeLabel(item.startDate),\n    endTime: getTimeLabel(item.endDate),\n    location: item.location || null,\n    estimatedCost: item.estimatedCost ?? null,\n    currency: item.currency || 'AED',\n    finalScore: item.finalScore ?? null,\n    lifeImpactScore: item.lifeImpactScore ?? null,\n    strategyScore: item.strategyScore,\n    classification: item.lifeClassification || null,\n    reason: item.reason || '',\n    strategyReasons: item.strategyReasons\n  });\n}\n\nconst dailyPlan = [...dailyPlanMap.values()]\n  .map(day => ({\n    ...day,\n    activities: day.activities.sort((a, b) =>\n      String(a.start || '').localeCompare(String(b.start || ''))\n    )\n  }))\n  .sort((a, b) => a.date.localeCompare(b.date));\n\nconst planType =\n  dailyPlan.length > 1\n    ? 'multi_day'\n    : dailyPlan.length === 1\n      ? 'single_day'\n      : 'empty';\n\nconst focusSummary = {\n  datingAndSocialCount:\n    selected.filter(item =>\n      ['dating', 'social'].includes(item.strategyGroup)\n    ).length,\n  nightlifeCount:\n    selected.filter(item => item.strategyGroup === 'nightlife').length,\n  travelCount:\n    selected.filter(item => item.strategyGroup === 'travel').length,\n  fitnessCount:\n    selected.filter(item => item.strategyGroup === 'fitness').length,\n  wellnessCount:\n    selected.filter(item => item.strategyGroup === 'wellness').length,\n  careerLearningCount:\n    selected.filter(item =>\n      ['career', 'learning'].includes(item.strategyGroup)\n    ).length\n};\n\nconst strategyNarrative = [];\n\nif (focusSummary.datingAndSocialCount > 0) {\n  strategyNarrative.push('The plan prioritizes dating and social-circle growth.');\n}\n\nif (focusSummary.nightlifeCount > 0) {\n  strategyNarrative.push('Nightlife is included without allowing it to dominate the plan.');\n}\n\nif (focusSummary.travelCount > 0) {\n  strategyNarrative.push('Travel is included when budget and timing permit.');\n}\n\nif (focusSummary.fitnessCount > 0) {\n  strategyNarrative.push('Fitness is included to protect consistency and confidence.');\n}\n\nif (strategyWarnings.length) {\n  strategyNarrative.push(...strategyWarnings);\n}\n\nconst actionInputs = selected.map(item => ({\n  id: item.id,\n  title: item.title,\n  category: item.category,\n  source: item.source,\n  sourceUrl: item.sourceUrl || null,\n  start: item.start || null,\n  end: item.end || null,\n  location: item.location || null,\n  estimatedCost: item.estimatedCost ?? null,\n  currency: item.currency || 'AED',\n  confidence: Number(item.confidence ?? 0.5),\n  reason:\n    item.reason ||\n    item.strategyReasons.join(' '),\n  score:\n    item.finalScore ??\n    item.strategyScore,\n  classification:\n    item.lifeClassification ||\n    'Strategic Selection',\n  strategyScore: item.strategyScore,\n  lifeImpactScore: item.lifeImpactScore ?? null,\n  requiresApproval: false\n}));\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      planType,\n      strategySummary: {\n        opportunityCount: opportunities.length,\n        selectedCount: selected.length,\n        rejectedCount: rejected.length,\n        plannedCost,\n        budgetAED:\n          Number.isFinite(budgetAED)\n            ? budgetAED\n            : null,\n        focusSummary,\n        warnings: strategyWarnings\n      },\n      dailyPlan,\n      selectedOpportunities: selected.map(item => ({\n        id: item.id,\n        title: item.title,\n        category: item.category,\n        strategyGroup: item.strategyGroup,\n        strategyScore: item.strategyScore,\n        finalScore: item.finalScore ?? null,\n        lifeImpactScore: item.lifeImpactScore ?? null,\n        start: item.start || null,\n        end: item.end || null,\n        location: item.location || null,\n        estimatedCost: item.estimatedCost ?? null,\n        currency: item.currency || 'AED',\n        strategyReasons: item.strategyReasons\n      })),\n      rejectedOpportunities: rejected,\n      strategyNarrative,\n      actionPlannerInput: {\n        recommendations: actionInputs\n      }\n    },\n    memoryUpdates: selected.map(item => ({\n      type: 'life_strategy_selection',\n      operation: 'append',\n      payload: {\n        recommendationId: item.id,\n        title: item.title,\n        category: item.category,\n        strategyScore: item.strategyScore,\n        selectedAt: new Date().toISOString()\n      }\n    })),\n    approvalRequests: [],\n    logs: [{\n      timestamp: new Date().toISOString(),\n      workflow: 'Concierge OS - Life Strategy Engine',\n      level:\n        strategyWarnings.length\n          ? 'warning'\n          : 'info',\n      correlationId: metadata.correlationId || '',\n      message:\n        `Built a ${planType} strategy with ${selected.length} selected opportunities.`,\n      details: {\n        selectedCount: selected.length,\n        rejectedCount: rejected.length,\n        plannedCost,\n        focusSummary,\n        strategyWarnings\n      }\n    }],\n    nextAction: {\n      type: 'build_action_plan',\n      targetWorkflow: 'Concierge OS - Action Planner'\n    },\n    error: null\n  }\n}];\n"
+      },
+      "id": "adb5c07d-fea7-4a08-9b2d-9cbcf67727f6",
+      "name": "Build Life Strategy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Life Strategy Engine\n\nPurpose:\n\nTurn ranked opportunities into a balanced daily or weekly life plan.\n\nPriority order:\n\n1. Dating and social life\n2. Nightlife\n3. Travel\n4. Fitness and wellness\n5. Style and confidence\n6. Career and learning\n7. Finance\n\nRules:\n\n- Avoid time conflicts.\n- Respect budget.\n- Limit to three activities per day.\n- Avoid excessive nightlife.\n- Preserve social and fitness balance.\n- Add warnings when goals are still unmet.\n- Produce Action Planner input.\n\nNo AI credits are used.\n",
+        "height": 470,
+        "width": 500
+      },
+      "id": "1c552e7a-c112-43d7-8375-d510f07132de",
+      "name": "LIFE STRATEGY NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -620
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Strategy Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Life Impact Engine": {
+      "main": [
+        [
+          {
+            "node": "Normalize Strategy Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Strategy Input": {
+      "main": [
+        [
+          {
+            "node": "Build Life Strategy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "91b890a6-d80f-4d5a-9a64-d7a06bf1a3dd",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
