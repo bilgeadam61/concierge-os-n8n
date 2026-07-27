@@ -3,12 +3,12 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "7a4aa8fc-b7d1-4cdc-aebb-8d085359ed8e",
+      "id": "83323bd4-909e-4b02-9acb-2d5754be8e1e",
       "name": "Manual Test",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -1000,
+        -1200,
         -120
       ]
     },
@@ -47,38 +47,38 @@
           ]
         }
       },
-      "id": "75b1df8d-16e2-40d1-98df-731d77990a6a",
+      "id": "7ce3e394-cd86-4a63-b429-d04e3fb1aa16",
       "name": "Called by Main Orchestrator",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -1000,
+        -1200,
         140
       ]
     },
     {
       "parameters": {
-        "jsCode": "\nconst input = $json || {};\n\nconst sampleContext = {\n  version: '1.0',\n  generatedAt: new Date().toISOString(),\n  timezone: 'Asia/Dubai',\n  request: {\n    text: 'Bu hafta sonu sosyal etkinlik bul'\n  },\n  userContext: {\n    identity: {\n      name: 'Savaş',\n      language: 'Turkish'\n    },\n    locations: {\n      home: 'Palm Jumeirah, Dubai',\n      work: 'Abu Dhabi'\n    },\n    goals: {\n      social: 'Build a quality international social circle',\n      dating: 'Create genuine dating opportunities',\n      travel: 'Take more weekend trips'\n    }\n  },\n  calendarContext: {\n    today: [],\n    tomorrow: [],\n    thisWeek: []\n  },\n  derivedContext: {\n    isWeekend: true,\n    calendarLoad: 'low',\n    needsMoreSocial: true,\n    needsMoreFitness: true,\n    preferredPlanningWindow: {\n      start: '17:00',\n      end: '23:00'\n    }\n  },\n  userState: {\n    energyLevel: 'high',\n    mood: 'social',\n    budgetAED: 1200,\n    maxTravelMinutes: 45\n  }\n};\n\nconst sampleDecision = {\n  route: 'social_discovery',\n  agentWorkflowName: 'Concierge OS - Social Discovery Agent',\n  actionMode: 'discover_analyze_recommend',\n  confidence: 0.94,\n  isAmbiguous: false,\n  needsDiscovery: true,\n  requiresApproval: false,\n  requiredContext: [\n    'memory',\n    'calendar',\n    'derived_context'\n  ],\n  reason: 'Social activity is below the weekly target.'\n};\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu hafta sonu sosyal etkinlik bul',\n      channel: 'manual_test',\n      userId: 'savas',\n      conversationId: 'manual-test',\n      receivedAt: new Date().toISOString()\n    },\n    context:\n      Object.keys(input.context || {}).length\n        ? input.context\n        : sampleContext,\n    decision:\n      Object.keys(input.decision || {}).length\n        ? input.decision\n        : sampleDecision,\n    sourceEvents:\n      Array.isArray(input.sourceEvents)\n        ? input.sourceEvents\n        : [],\n    connectorOutputs:\n      Array.isArray(input.connectorOutputs)\n        ? input.connectorOutputs\n        : [],\n    forwardedItems:\n      Array.isArray(input.forwardedItems)\n        ? input.forwardedItems\n        : [],\n    metadata: {\n      correlationId:\n        input.metadata?.correlationId ||\n        `agent-orchestrator-${Date.now()}`,\n      sourceWorkflow:\n        input.metadata?.sourceWorkflow ||\n        'Concierge OS - Agent Orchestrator',\n      testMode:\n        input.metadata?.testMode ?? true,\n      ...input.metadata\n    }\n  }\n}];\n"
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleContext = {\n  version: '1.0',\n  generatedAt: new Date().toISOString(),\n  timezone: 'Asia/Dubai',\n  request: { text: 'Bu hafta sonu sosyal etkinlik bul' },\n  userContext: {\n    identity: { name: 'Savaş', language: 'Turkish' },\n    locations: { home: 'Palm Jumeirah, Dubai', work: 'Abu Dhabi' },\n    goals: {\n      social: 'Build a quality international social circle',\n      dating: 'Create genuine dating opportunities',\n      travel: 'Take more weekend trips'\n    }\n  },\n  calendarContext: { today: [], tomorrow: [], thisWeek: [] },\n  derivedContext: {\n    isWeekend: true,\n    calendarLoad: 'low',\n    needsMoreSocial: true,\n    needsMoreFitness: true,\n    preferredPlanningWindow: { start: '17:00', end: '23:00' }\n  },\n  userState: {\n    energyLevel: 'high',\n    mood: 'social',\n    budgetAED: 1200,\n    maxTravelMinutes: 45\n  }\n};\n\nconst sampleDecision = {\n  route: 'social_discovery',\n  agentWorkflowName: 'Concierge OS - Social Discovery Agent',\n  actionMode: 'discover_analyze_recommend',\n  confidence: 0.94,\n  isAmbiguous: false,\n  needsDiscovery: true,\n  requiresApproval: false,\n  requiredContext: ['memory', 'calendar', 'derived_context'],\n  reason: 'Social activity is below the weekly target.'\n};\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu hafta sonu sosyal etkinlik bul',\n      channel: 'manual_test',\n      userId: 'savas',\n      conversationId: 'manual-test',\n      receivedAt: new Date().toISOString()\n    },\n    context: Object.keys(input.context || {}).length ? input.context : sampleContext,\n    decision: Object.keys(input.decision || {}).length ? input.decision : sampleDecision,\n    sourceEvents: Array.isArray(input.sourceEvents) ? input.sourceEvents : [],\n    connectorOutputs: Array.isArray(input.connectorOutputs) ? input.connectorOutputs : [],\n    forwardedItems: Array.isArray(input.forwardedItems) ? input.forwardedItems : [],\n    metadata: {\n      correlationId: input.metadata?.correlationId || `agent-orchestrator-${Date.now()}`,\n      sourceWorkflow: input.metadata?.sourceWorkflow || 'Concierge OS - Agent Orchestrator',\n      testMode: input.metadata?.testMode ?? true,\n      ...input.metadata\n    }\n  }\n}];\n"
       },
-      "id": "cfcf687a-fff1-48e1-8ceb-be4416357c72",
+      "id": "7d996ddc-bac7-4e89-8e2d-4ab0647a8305",
       "name": "Normalize Agent Orchestrator Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -700,
+        -930,
         0
       ]
     },
     {
       "parameters": {
-        "jsCode": "\nconst input = $json || {};\nconst decision = input.decision || {};\nconst route = String(\n  decision.route || 'general_concierge'\n).trim();\n\nconst supportedRoutes = [\n  'social_discovery'\n];\n\nreturn [{\n  json: {\n    ...input,\n    selectedRoute: route,\n    isSocialDiscovery:\n      route === 'social_discovery',\n    isImplemented:\n      supportedRoutes.includes(route),\n    targetWorkflow:\n      route === 'social_discovery'\n        ? 'Concierge OS - Social Discovery Agent'\n        : decision.agentWorkflowName ||\n          'Concierge OS - General Concierge'\n  }\n}];\n"
+        "jsCode": "\nconst input = $json || {};\nconst route = String(input.decision?.route || 'general_concierge').trim();\n\nreturn [{\n  json: {\n    ...input,\n    selectedRoute: route,\n    isSocialDiscovery: route === 'social_discovery',\n    targetWorkflow:\n      route === 'social_discovery'\n        ? 'Concierge OS - Social Discovery Agent'\n        : input.decision?.agentWorkflowName || 'Concierge OS - General Concierge'\n  }\n}];\n"
       },
-      "id": "15ab4c1e-5a42-458f-acd8-2da0811abb0e",
-      "name": "Resolve Implemented Route",
+      "id": "548165b1-84be-46c6-9f5d-0e3cfa2fc35b",
+      "name": "Resolve Route",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -420,
+        -680,
         0
       ]
     },
@@ -93,7 +93,7 @@
           },
           "conditions": [
             {
-              "id": "3372e271-2e1b-4904-addf-88e6a5d6b8e3",
+              "id": "8fa14cf6-4ffa-4736-ac41-d107d24fa5a8",
               "leftValue": "={{ $json.isSocialDiscovery }}",
               "rightValue": true,
               "operator": {
@@ -107,26 +107,26 @@
         },
         "options": {}
       },
-      "id": "ae77fd7a-9716-494d-a405-d01463d1b029",
+      "id": "9218e6b5-ee76-404c-a292-5ee9b0c412b9",
       "name": "Social Discovery Route?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -140,
+        -430,
         0
       ]
     },
     {
       "parameters": {
-        "jsCode": "\nconst input = $json || {};\n\nreturn [{\n  json: {\n    request: input.request,\n    context: input.context,\n    events: input.sourceEvents || [],\n    sourceEvents: input.sourceEvents || [],\n    connectorOutputs: input.connectorOutputs || [],\n    forwardedItems: input.forwardedItems || [],\n    metadata: {\n      ...input.metadata,\n      sourceWorkflow:\n        'Concierge OS - Agent Orchestrator',\n      selectedRoute:\n        input.selectedRoute,\n      targetWorkflow:\n        input.targetWorkflow\n    }\n  }\n}];\n"
+        "jsCode": "\nreturn [{\n  json: {\n    request: $json.request,\n    context: $json.context,\n    events: $json.sourceEvents || [],\n    sourceEvents: $json.sourceEvents || [],\n    connectorOutputs: $json.connectorOutputs || [],\n    forwardedItems: $json.forwardedItems || [],\n    metadata: {\n      ...$json.metadata,\n      selectedRoute: $json.selectedRoute,\n      sourceWorkflow: 'Concierge OS - Agent Orchestrator'\n    }\n  }\n}];\n"
       },
-      "id": "a6925a95-cda1-43ff-8a59-790ea248fbf9",
+      "id": "509e4384-b178-41bd-894c-364f16570648",
       "name": "Prepare Social Agent Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        150,
-        -100
+        -170,
+        -130
       ]
     },
     {
@@ -140,13 +140,13 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "request": "={{ $json.request }}",
-            "context": "={{ $json.context }}",
-            "events": "={{ $json.events }}",
-            "sourceEvents": "={{ $json.sourceEvents }}",
-            "connectorOutputs": "={{ $json.connectorOutputs }}",
-            "forwardedItems": "={{ $json.forwardedItems }}",
-            "metadata": "={{ $json.metadata }}"
+            "request": "={ $json.request }",
+            "context": "={ $json.context }",
+            "events": "={ $json.events }",
+            "sourceEvents": "={ $json.sourceEvents }",
+            "connectorOutputs": "={ $json.connectorOutputs }",
+            "forwardedItems": "={ $json.forwardedItems }",
+            "metadata": "={ $json.metadata }"
           },
           "matchingColumns": [],
           "schema": [
@@ -200,54 +200,277 @@
           "waitForSubWorkflow": true
         }
       },
-      "id": "a4fcf59e-d8d1-4ad6-a37c-9402fbc49d33",
+      "id": "4486759b-0b40-4c9f-982a-dd65a632cc71",
       "name": "Execute Social Discovery Agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        450,
-        -100
+        100,
+        -130
       ]
     },
     {
       "parameters": {
-        "jsCode": "\nconst agentOutput = $json || {};\nconst orchestratorInput =\n  $('Prepare Social Agent Input').item.json || {};\n\nconst recommendations =\n  agentOutput.result?.recommendations || [];\n\nreturn [{\n  json: {\n    success:\n      agentOutput.success === true,\n    result: {\n      selectedAgent:\n        'social_discovery',\n      selectedRoute:\n        'social_discovery',\n      targetWorkflow:\n        'Concierge OS - Social Discovery Agent',\n      executionStatus:\n        agentOutput.success === true\n          ? 'completed'\n          : 'failed',\n      agentResponse:\n        agentOutput,\n      recommendations\n    },\n    memoryUpdates:\n      agentOutput.memoryUpdates || [],\n    approvalRequests:\n      agentOutput.approvalRequests || [],\n    logs: [\n      {\n        timestamp:\n          new Date().toISOString(),\n        workflow:\n          'Concierge OS - Agent Orchestrator',\n        level:\n          agentOutput.success === true\n            ? 'info'\n            : 'error',\n        correlationId:\n          orchestratorInput.metadata?.correlationId || '',\n        message:\n          agentOutput.success === true\n            ? `Social Discovery Agent returned ${recommendations.length} recommendations.`\n            : 'Social Discovery Agent failed.',\n        details: {\n          targetWorkflow:\n            'Concierge OS - Social Discovery Agent',\n          recommendationCount:\n            recommendations.length\n        }\n      },\n      ...(agentOutput.logs || [])\n    ],\n    nextAction: {\n      type:\n        agentOutput.success === true\n          ? 'rank_recommendations'\n          : 'stop',\n      targetWorkflow:\n        agentOutput.success === true\n          ? 'Concierge OS - Recommendation Engine'\n          : null\n    },\n    error:\n      agentOutput.error || null\n  }\n}];\n"
+        "jsCode": "\nconst socialOutput = $json || {};\nconst original = $('Prepare Social Agent Input').item.json || {};\n\nreturn [{\n  json: {\n    request: original.request,\n    context: original.context,\n    recommendations: socialOutput.result?.recommendations || [],\n    agentResponses: [socialOutput],\n    metadata: {\n      ...original.metadata,\n      sourceWorkflow: 'Concierge OS - Agent Orchestrator',\n      previousWorkflow: 'Concierge OS - Social Discovery Agent'\n    }\n  }\n}];\n"
       },
-      "id": "056ecc86-1640-41a7-add9-222264baf89f",
-      "name": "Normalize Social Agent Result",
+      "id": "4e99c17a-4305-480b-ad77-349f572d3740",
+      "name": "Prepare Recommendation Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        760,
-        -100
+        370,
+        -130
       ]
     },
     {
       "parameters": {
-        "jsCode": "\nconst input = $json || {};\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      selectedAgent:\n        input.selectedRoute ||\n        'general_concierge',\n      selectedRoute:\n        input.selectedRoute ||\n        'general_concierge',\n      targetWorkflow:\n        input.targetWorkflow || null,\n      executionStatus:\n        'agent_not_implemented',\n      agentResponse: {\n        success: true,\n        result: {\n          agent:\n            input.selectedRoute ||\n            'general_concierge',\n          summary:\n            `The route '${input.selectedRoute}' was selected, but its specialist workflow has not been implemented yet.`,\n          recommendations: []\n        }\n      },\n      recommendations: []\n    },\n    memoryUpdates: [],\n    approvalRequests: [],\n    logs: [{\n      timestamp:\n        new Date().toISOString(),\n      workflow:\n        'Concierge OS - Agent Orchestrator',\n      level: 'warning',\n      correlationId:\n        input.metadata?.correlationId || '',\n      message:\n        'Selected agent is not implemented.',\n      details: {\n        route:\n          input.selectedRoute,\n        targetWorkflow:\n          input.targetWorkflow\n      }\n    }],\n    nextAction: {\n      type:\n        'implement_or_connect_agent',\n      targetWorkflow:\n        input.targetWorkflow || null\n    },\n    error: null\n  }\n}];\n"
+        "workflowId": {
+          "__rl": true,
+          "value": "SELECT_RECOMMENDATION_ENGINE_WORKFLOW",
+          "mode": "list",
+          "cachedResultName": "Select Concierge OS - Recommendation Engine"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "request": "={ $json.request }",
+            "context": "={ $json.context }",
+            "recommendations": "={ $json.recommendations }",
+            "agentResponses": "={ $json.agentResponses }",
+            "metadata": "={ $json.metadata }"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "request",
+              "displayName": "request",
+              "type": "object",
+              "required": false
+            },
+            {
+              "id": "context",
+              "displayName": "context",
+              "type": "object",
+              "required": false
+            },
+            {
+              "id": "recommendations",
+              "displayName": "recommendations",
+              "type": "array",
+              "required": false
+            },
+            {
+              "id": "agentResponses",
+              "displayName": "agentResponses",
+              "type": "array",
+              "required": false
+            },
+            {
+              "id": "metadata",
+              "displayName": "metadata",
+              "type": "object",
+              "required": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
       },
-      "id": "ed097dce-3d88-43d2-bdda-a4d610260f19",
+      "id": "30bf6c0c-086f-4d69-8db0-5335059c4023",
+      "name": "Execute Recommendation Engine",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        650,
+        -130
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst recommendationOutput = $json || {};\nconst original = $('Prepare Recommendation Input').item.json || {};\n\nreturn [{\n  json: {\n    request: original.request,\n    context: original.context,\n    recommendationEngineOutput: recommendationOutput,\n    metadata: {\n      ...original.metadata,\n      sourceWorkflow: 'Concierge OS - Agent Orchestrator',\n      previousWorkflow: 'Concierge OS - Recommendation Engine'\n    }\n  }\n}];\n"
+      },
+      "id": "871f98eb-4260-43a5-ad39-dc40b9314777",
+      "name": "Prepare Life Impact Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        930,
+        -130
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "SELECT_LIFE_IMPACT_WORKFLOW",
+          "mode": "list",
+          "cachedResultName": "Select Concierge OS - Life Impact Scoring Engine"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "request": "={ $json.request }",
+            "context": "={ $json.context }",
+            "recommendationEngineOutput": "={ $json.recommendationEngineOutput }",
+            "metadata": "={ $json.metadata }"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "request",
+              "displayName": "request",
+              "type": "object",
+              "required": false
+            },
+            {
+              "id": "context",
+              "displayName": "context",
+              "type": "object",
+              "required": false
+            },
+            {
+              "id": "recommendationEngineOutput",
+              "displayName": "recommendationEngineOutput",
+              "type": "object",
+              "required": false
+            },
+            {
+              "id": "metadata",
+              "displayName": "metadata",
+              "type": "object",
+              "required": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "f84ba047-b062-4207-ba95-3159055089b8",
+      "name": "Execute Life Impact Scoring Engine",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1210,
+        -130
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst lifeImpactOutput = $json || {};\nconst original = $('Prepare Life Impact Input').item.json || {};\n\nreturn [{\n  json: {\n    request: original.request,\n    context: original.context,\n    lifeImpactOutput,\n    metadata: {\n      ...original.metadata,\n      sourceWorkflow: 'Concierge OS - Agent Orchestrator',\n      previousWorkflow: 'Concierge OS - Life Impact Scoring Engine'\n    }\n  }\n}];\n"
+      },
+      "id": "bf5cfd88-bb36-473b-a30c-de22a3451aca",
+      "name": "Prepare Strategy Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1490,
+        -130
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "SELECT_LIFE_STRATEGY_WORKFLOW",
+          "mode": "list",
+          "cachedResultName": "Select Concierge OS - Life Strategy Engine"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "request": "={ $json.request }",
+            "context": "={ $json.context }",
+            "lifeImpactOutput": "={ $json.lifeImpactOutput }",
+            "metadata": "={ $json.metadata }"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "request",
+              "displayName": "request",
+              "type": "object",
+              "required": false
+            },
+            {
+              "id": "context",
+              "displayName": "context",
+              "type": "object",
+              "required": false
+            },
+            {
+              "id": "lifeImpactOutput",
+              "displayName": "lifeImpactOutput",
+              "type": "object",
+              "required": false
+            },
+            {
+              "id": "metadata",
+              "displayName": "metadata",
+              "type": "object",
+              "required": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "28fe89de-cec2-45d4-b4c3-09a0ea7c0cee",
+      "name": "Execute Life Strategy Engine",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1770,
+        -130
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst strategyOutput = $json || {};\nconst socialOutput = $('Execute Social Discovery Agent').item.json || {};\nconst recommendationOutput = $('Execute Recommendation Engine').item.json || {};\nconst lifeImpactOutput = $('Execute Life Impact Engine').item.json || {};\nconst original = $('Prepare Social Agent Input').item.json || {};\n\nreturn [{\n  json: {\n    success:\n      strategyOutput.success === true,\n    result: {\n      selectedAgent: 'social_discovery',\n      selectedRoute: 'social_discovery',\n      executionStatus:\n        strategyOutput.success === true ? 'completed' : 'failed',\n      socialDiscovery: socialOutput.result || {},\n      recommendationRanking: recommendationOutput.result || {},\n      lifeImpactScoring: lifeImpactOutput.result || {},\n      lifeStrategy: strategyOutput.result || {},\n      recommendations:\n        recommendationOutput.result?.topRecommendations || [],\n      topLifeOpportunities:\n        lifeImpactOutput.result?.topLifeOpportunities || [],\n      dailyPlan:\n        strategyOutput.result?.dailyPlan || [],\n      actionPlannerInput:\n        strategyOutput.result?.actionPlannerInput || { recommendations: [] }\n    },\n    memoryUpdates: [\n      ...(socialOutput.memoryUpdates || []),\n      ...(recommendationOutput.memoryUpdates || []),\n      ...(lifeImpactOutput.memoryUpdates || []),\n      ...(strategyOutput.memoryUpdates || [])\n    ],\n    approvalRequests: [],\n    logs: [{\n      timestamp: new Date().toISOString(),\n      workflow: 'Concierge OS - Agent Orchestrator',\n      level: strategyOutput.success === true ? 'info' : 'error',\n      correlationId: original.metadata?.correlationId || '',\n      message:\n        strategyOutput.success === true\n          ? 'Completed social discovery and life strategy pipeline.'\n          : 'Social discovery pipeline failed.',\n      details: {\n        discoveredCount:\n          socialOutput.result?.recommendations?.length || 0,\n        rankedCount:\n          recommendationOutput.result?.topRecommendations?.length || 0,\n        lifeOpportunityCount:\n          lifeImpactOutput.result?.topLifeOpportunities?.length || 0,\n        plannedDayCount:\n          strategyOutput.result?.dailyPlan?.length || 0\n      }\n    }],\n    nextAction: {\n      type:\n        strategyOutput.success === true\n          ? 'build_action_plan'\n          : 'stop',\n      targetWorkflow:\n        strategyOutput.success === true\n          ? 'Concierge OS - Action Planner'\n          : null\n    },\n    error: strategyOutput.error || null\n  }\n}];\n"
+      },
+      "id": "8d4183f7-dfb2-4f37-9a68-a2b462515a28",
+      "name": "Build Social Pipeline Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2050,
+        -130
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn [{\n  json: {\n    success: true,\n    result: {\n      selectedAgent: $json.selectedRoute || 'general_concierge',\n      selectedRoute: $json.selectedRoute || 'general_concierge',\n      targetWorkflow: $json.targetWorkflow || null,\n      executionStatus: 'agent_not_implemented',\n      recommendations: []\n    },\n    memoryUpdates: [],\n    approvalRequests: [],\n    logs: [{\n      timestamp: new Date().toISOString(),\n      workflow: 'Concierge OS - Agent Orchestrator',\n      level: 'warning',\n      correlationId: $json.metadata?.correlationId || '',\n      message: 'Selected agent is not implemented.',\n      details: {\n        route: $json.selectedRoute,\n        targetWorkflow: $json.targetWorkflow\n      }\n    }],\n    nextAction: {\n      type: 'implement_or_connect_agent',\n      targetWorkflow: $json.targetWorkflow || null\n    },\n    error: null\n  }\n}];\n"
+      },
+      "id": "e86f0446-02f7-45a1-8805-b673a1e9be87",
       "name": "Return Unimplemented Agent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        150,
-        140
+        -170,
+        160
       ]
     },
     {
       "parameters": {
-        "content": "## Agent Orchestrator — Social Agent Connected\n\nImplemented route:\n\n`social_discovery`\n→ `Concierge OS - Social Discovery Agent`\n\nOther routes still return a safe placeholder.\n\n### Required setup\n\nAfter import:\n\n1. Open **Execute Social Discovery Agent**.\n2. Select workflow:\n   `Concierge OS - Social Discovery Agent`\n3. Save.\n4. Run **Execute workflow from Manual Test**.\n\nExpected final output:\n\n- selectedAgent: social_discovery\n- executionStatus: completed\n- recommendations: populated\n- nextAction: rank_recommendations\n",
-        "height": 440,
-        "width": 500
+        "content": "## Agent Orchestrator — Social Pipeline\n\nConnected chain:\n\nSocial Discovery Agent\n→ Recommendation Engine\n→ Life Impact Scoring Engine\n→ Life Strategy Engine\n\nAfter import, select the correct workflow in each Execute Workflow node:\n\n1. Social Discovery Agent\n2. Recommendation Engine\n3. Life Impact Scoring Engine\n4. Life Strategy Engine\n\nExpected final output:\n\n- socialDiscovery\n- recommendationRanking\n- lifeImpactScoring\n- lifeStrategy\n- dailyPlan\n- actionPlannerInput\n\nNo AI credits are used.\n",
+        "height": 460,
+        "width": 510
       },
-      "id": "3f41c481-2b40-40de-8263-c10926352b92",
-      "name": "SOCIAL AGENT CONNECTION SETUP",
+      "id": "a258ba7c-941c-4900-a71d-8ee5bd6c4c78",
+      "name": "PIPELINE SETUP",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -1000,
-        -600
+        -1200,
+        -620
       ]
     }
   ],
@@ -278,14 +501,14 @@
       "main": [
         [
           {
-            "node": "Resolve Implemented Route",
+            "node": "Resolve Route",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Resolve Implemented Route": {
+    "Resolve Route": {
       "main": [
         [
           {
@@ -329,7 +552,73 @@
       "main": [
         [
           {
-            "node": "Normalize Social Agent Result",
+            "node": "Prepare Recommendation Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Recommendation Input": {
+      "main": [
+        [
+          {
+            "node": "Execute Recommendation Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Recommendation Engine": {
+      "main": [
+        [
+          {
+            "node": "Prepare Life Impact Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Life Impact Input": {
+      "main": [
+        [
+          {
+            "node": "Execute Life Impact Scoring Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Life Impact Scoring Engine": {
+      "main": [
+        [
+          {
+            "node": "Prepare Strategy Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Strategy Input": {
+      "main": [
+        [
+          {
+            "node": "Execute Life Strategy Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Life Strategy Engine": {
+      "main": [
+        [
+          {
+            "node": "Build Social Pipeline Result",
             "type": "main",
             "index": 0
           }
@@ -345,7 +634,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "saveManualExecutions": true
   },
-  "versionId": "93310a03-f498-4f9a-b6cd-e4a5efb5c58f",
+  "versionId": "3789c4ae-3bc4-4f2e-907e-44e3d65fb4e9",
   "meta": {
     "templateCredsSetupCompleted": false
   },
