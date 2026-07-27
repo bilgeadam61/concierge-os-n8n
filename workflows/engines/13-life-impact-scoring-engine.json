@@ -1,0 +1,137 @@
+{
+  "name": "Concierge OS - Life Impact Scoring Engine",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b9660c08-ab6a-4d5a-b987-6c43a07f7c4b",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "context",
+              "type": "object"
+            },
+            {
+              "name": "recommendationEngineOutput",
+              "type": "object"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "8b3439c2-33c6-4134-94f3-0ff44111fbe1",
+      "name": "Called by Recommendation Engine",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -800,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleRecommendationOutput = {\n  success: true,\n  result: {\n    topRecommendations: [\n      {\n        rank: 1,\n        id: 'social-1',\n        title: 'International Social Mixer',\n        category: 'social',\n        source: 'InterNations',\n        location: 'Dubai Marina',\n        estimatedCost: 120,\n        currency: 'AED',\n        confidence: 0.90,\n        reason: 'International crowd and strong solo-friendly social fit.',\n        score: 88,\n        classification: 'Must Go',\n        rawScores: {\n          calendarCompatibility: 9,\n          travelConvenience: 7,\n          socialQuality: 10,\n          audienceFit: 9,\n          fitnessValue: 1,\n          growthValue: 7,\n          networkingValue: 9,\n          organicConnectionPotential: 9,\n          funNovelty: 8,\n          valueForMoney: 7,\n          soloFriendly: 9\n        }\n      },\n      {\n        rank: 2,\n        id: 'nightlife-1',\n        title: 'Rooftop Social Night',\n        category: 'nightlife',\n        source: 'TimeOut Dubai',\n        location: 'Palm Jumeirah',\n        estimatedCost: 180,\n        currency: 'AED',\n        confidence: 0.82,\n        reason: 'Strong nightlife and dating potential close to home.',\n        score: 82,\n        classification: 'Strong Match',\n        rawScores: {\n          calendarCompatibility: 8,\n          travelConvenience: 10,\n          socialQuality: 8,\n          audienceFit: 8,\n          fitnessValue: 1,\n          growthValue: 4,\n          networkingValue: 5,\n          organicConnectionPotential: 9,\n          funNovelty: 9,\n          valueForMoney: 6,\n          soloFriendly: 8\n        }\n      },\n      {\n        rank: 3,\n        id: 'travel-1',\n        title: 'Weekend Muscat Escape',\n        category: 'travel',\n        source: 'Skyscanner',\n        location: 'Muscat',\n        estimatedCost: 850,\n        currency: 'AED',\n        confidence: 0.88,\n        reason: 'High novelty and travel value for the weekend.',\n        score: 79,\n        classification: 'Strong Match',\n        rawScores: {\n          calendarCompatibility: 7,\n          travelConvenience: 5,\n          socialQuality: 6,\n          audienceFit: 7,\n          fitnessValue: 3,\n          growthValue: 8,\n          networkingValue: 4,\n          organicConnectionPotential: 6,\n          funNovelty: 10,\n          valueForMoney: 6,\n          soloFriendly: 7\n        }\n      },\n      {\n        rank: 4,\n        id: 'fitness-1',\n        title: 'Boxing Class',\n        category: 'fitness',\n        source: 'Privilee',\n        location: 'Palm Jumeirah',\n        estimatedCost: 0,\n        currency: 'AED',\n        confidence: 0.95,\n        reason: 'Supports fitness consistency and confidence.',\n        score: 80,\n        classification: 'Strong Match',\n        rawScores: {\n          calendarCompatibility: 8,\n          travelConvenience: 10,\n          socialQuality: 5,\n          audienceFit: 7,\n          fitnessValue: 10,\n          growthValue: 8,\n          networkingValue: 3,\n          organicConnectionPotential: 3,\n          funNovelty: 6,\n          valueForMoney: 10,\n          soloFriendly: 10\n        }\n      }\n    ]\n  }\n};\n\nconst source =\n  input.recommendationEngineOutput ||\n  (\n    input.result?.topRecommendations\n      ? input\n      : sampleRecommendationOutput\n  );\n\nconst recommendations =\n  source.result?.topRecommendations ||\n  source.result?.allRankedRecommendations ||\n  source.topRecommendations ||\n  [];\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu hafta hayatımı en iyi nasıl değerlendirebilirim?',\n      channel: 'manual_test',\n      userId: 'savas'\n    },\n    context: input.context || {\n      timezone: 'Asia/Dubai',\n      userContext: {\n        identity: { name: 'Savaş', language: 'Turkish' },\n        goals: {\n          social: 'Build a quality international social circle',\n          dating: 'Create genuine dating opportunities',\n          fitness: 'Stay consistent with boxing and gym',\n          travel: 'Take more weekend trips'\n        }\n      },\n      derivedContext: {\n        calendarLoad: 'low',\n        needsMoreSocial: true,\n        needsMoreFitness: true,\n        isWeekend: true,\n        needsFinanceReview: false\n      },\n      userState: {\n        energyLevel: 'high',\n        mood: 'social',\n        budgetAED: 500,\n        maxTravelMinutes: 40\n      }\n    },\n    recommendations,\n    metadata: input.metadata || {\n      correlationId: `life-impact-${Date.now()}`,\n      testMode: true\n    }\n  }\n}];\n"
+      },
+      "id": "c63d80f6-b9ae-4317-96d9-3f16388d2bf7",
+      "name": "Normalize Life Impact Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nconst recommendations = Array.isArray(input.recommendations)\n  ? input.recommendations\n  : [];\n\nconst context = input.context || {};\nconst derived =\n  context.derivedContext ||\n  context.derived ||\n  {};\n\nconst userState = context.userState || {};\nconst metadata = input.metadata || {};\n\nconst clamp10 = value =>\n  Math.max(0, Math.min(10, Number(value ?? 0)));\n\nconst clamp100 = value =>\n  Math.max(0, Math.min(100, Math.round(Number(value ?? 0))));\n\nconst defaultWeights = {\n  datingOpportunity: 20,\n  socialCircleGrowth: 20,\n  nightlifeValue: 10,\n  travelValue: 10,\n  healthImpact: 10,\n  newExperience: 10,\n  funFactor: 8,\n  confidenceGrowth: 5,\n  careerValue: 3,\n  learningValue: 2,\n  costEfficiency: 2\n};\n\nconst categoryProfiles = {\n  social: {\n    datingOpportunity: 8,\n    socialCircleGrowth: 10,\n    nightlifeValue: 5,\n    travelValue: 1,\n    healthImpact: 2,\n    newExperience: 7,\n    funFactor: 8,\n    confidenceGrowth: 9,\n    careerValue: 5,\n    learningValue: 3,\n    costEfficiency: 6\n  },\n  dating: {\n    datingOpportunity: 10,\n    socialCircleGrowth: 8,\n    nightlifeValue: 6,\n    travelValue: 1,\n    healthImpact: 1,\n    newExperience: 8,\n    funFactor: 8,\n    confidenceGrowth: 10,\n    careerValue: 1,\n    learningValue: 3,\n    costEfficiency: 5\n  },\n  nightlife: {\n    datingOpportunity: 9,\n    socialCircleGrowth: 8,\n    nightlifeValue: 10,\n    travelValue: 1,\n    healthImpact: 1,\n    newExperience: 7,\n    funFactor: 10,\n    confidenceGrowth: 8,\n    careerValue: 2,\n    learningValue: 1,\n    costEfficiency: 4\n  },\n  travel: {\n    datingOpportunity: 5,\n    socialCircleGrowth: 6,\n    nightlifeValue: 4,\n    travelValue: 10,\n    healthImpact: 5,\n    newExperience: 10,\n    funFactor: 9,\n    confidenceGrowth: 7,\n    careerValue: 3,\n    learningValue: 7,\n    costEfficiency: 4\n  },\n  fitness: {\n    datingOpportunity: 3,\n    socialCircleGrowth: 5,\n    nightlifeValue: 1,\n    travelValue: 1,\n    healthImpact: 10,\n    newExperience: 5,\n    funFactor: 6,\n    confidenceGrowth: 9,\n    careerValue: 1,\n    learningValue: 4,\n    costEfficiency: 8\n  },\n  wellness: {\n    datingOpportunity: 2,\n    socialCircleGrowth: 3,\n    nightlifeValue: 1,\n    travelValue: 1,\n    healthImpact: 10,\n    newExperience: 4,\n    funFactor: 5,\n    confidenceGrowth: 6,\n    careerValue: 1,\n    learningValue: 3,\n    costEfficiency: 8\n  },\n  style: {\n    datingOpportunity: 7,\n    socialCircleGrowth: 5,\n    nightlifeValue: 3,\n    travelValue: 1,\n    healthImpact: 3,\n    newExperience: 5,\n    funFactor: 4,\n    confidenceGrowth: 10,\n    careerValue: 5,\n    learningValue: 3,\n    costEfficiency: 5\n  },\n  career: {\n    datingOpportunity: 2,\n    socialCircleGrowth: 6,\n    nightlifeValue: 1,\n    travelValue: 2,\n    healthImpact: 1,\n    newExperience: 6,\n    funFactor: 4,\n    confidenceGrowth: 6,\n    careerValue: 10,\n    learningValue: 9,\n    costEfficiency: 7\n  },\n  learning: {\n    datingOpportunity: 1,\n    socialCircleGrowth: 4,\n    nightlifeValue: 1,\n    travelValue: 1,\n    healthImpact: 2,\n    newExperience: 6,\n    funFactor: 4,\n    confidenceGrowth: 5,\n    careerValue: 7,\n    learningValue: 10,\n    costEfficiency: 8\n  },\n  finance: {\n    datingOpportunity: 1,\n    socialCircleGrowth: 1,\n    nightlifeValue: 1,\n    travelValue: 2,\n    healthImpact: 2,\n    newExperience: 2,\n    funFactor: 2,\n    confidenceGrowth: 4,\n    careerValue: 5,\n    learningValue: 7,\n    costEfficiency: 10\n  },\n  general: {\n    datingOpportunity: 4,\n    socialCircleGrowth: 5,\n    nightlifeValue: 3,\n    travelValue: 3,\n    healthImpact: 4,\n    newExperience: 5,\n    funFactor: 5,\n    confidenceGrowth: 5,\n    careerValue: 4,\n    learningValue: 4,\n    costEfficiency: 5\n  }\n};\n\nconst getProfile = category => {\n  const key = String(category || 'general').toLowerCase();\n\n  if (categoryProfiles[key]) return { ...categoryProfiles[key] };\n\n  if (key.includes('social') || key.includes('network')) {\n    return { ...categoryProfiles.social };\n  }\n\n  if (key.includes('night')) {\n    return { ...categoryProfiles.nightlife };\n  }\n\n  if (key.includes('travel') || key.includes('trip')) {\n    return { ...categoryProfiles.travel };\n  }\n\n  if (key.includes('fitness') || key.includes('sport')) {\n    return { ...categoryProfiles.fitness };\n  }\n\n  return { ...categoryProfiles.general };\n};\n\nconst enrichFromRawScores = (profile, rawScores = {}) => {\n  const result = { ...profile };\n\n  if (rawScores.organicConnectionPotential !== undefined) {\n    result.datingOpportunity =\n      (result.datingOpportunity + clamp10(rawScores.organicConnectionPotential)) / 2;\n  }\n\n  if (rawScores.socialQuality !== undefined) {\n    result.socialCircleGrowth =\n      (result.socialCircleGrowth + clamp10(rawScores.socialQuality)) / 2;\n  }\n\n  if (rawScores.funNovelty !== undefined) {\n    result.newExperience =\n      (result.newExperience + clamp10(rawScores.funNovelty)) / 2;\n\n    result.funFactor =\n      (result.funFactor + clamp10(rawScores.funNovelty)) / 2;\n  }\n\n  if (rawScores.fitnessValue !== undefined) {\n    result.healthImpact =\n      (result.healthImpact + clamp10(rawScores.fitnessValue)) / 2;\n  }\n\n  if (rawScores.growthValue !== undefined) {\n    result.confidenceGrowth =\n      (result.confidenceGrowth + clamp10(rawScores.growthValue)) / 2;\n\n    result.learningValue =\n      (result.learningValue + clamp10(rawScores.growthValue)) / 2;\n  }\n\n  if (rawScores.networkingValue !== undefined) {\n    result.careerValue =\n      (result.careerValue + clamp10(rawScores.networkingValue)) / 2;\n  }\n\n  if (rawScores.valueForMoney !== undefined) {\n    result.costEfficiency =\n      (result.costEfficiency + clamp10(rawScores.valueForMoney)) / 2;\n  }\n\n  return result;\n};\n\nconst applyContextAdjustments = (scores, recommendation) => {\n  const adjusted = { ...scores };\n  const reasons = [];\n\n  const category = String(recommendation.category || '').toLowerCase();\n\n  if (\n    derived.needsMoreSocial === true &&\n    ['social', 'dating', 'nightlife', 'networking'].some(value =>\n      category.includes(value)\n    )\n  ) {\n    adjusted.socialCircleGrowth += 1;\n    adjusted.datingOpportunity += 0.5;\n    reasons.push('Social activity is below the weekly target.');\n  }\n\n  if (\n    derived.needsMoreFitness === true &&\n    ['fitness', 'sports', 'wellness'].some(value =>\n      category.includes(value)\n    )\n  ) {\n    adjusted.healthImpact += 1;\n    adjusted.confidenceGrowth += 0.5;\n    reasons.push('Fitness activity is below the weekly target.');\n  }\n\n  if (\n    derived.isWeekend === true &&\n    ['travel', 'social', 'nightlife', 'dating'].some(value =>\n      category.includes(value)\n    )\n  ) {\n    adjusted.funFactor += 0.5;\n    adjusted.newExperience += 0.5;\n    reasons.push('Weekend timing improves suitability.');\n  }\n\n  if (\n    derived.calendarLoad === 'high' &&\n    !['wellness', 'recovery'].some(value =>\n      category.includes(value)\n    )\n  ) {\n    adjusted.funFactor -= 1;\n    adjusted.healthImpact -= 0.5;\n    reasons.push('High calendar load reduces life impact.');\n  }\n\n  const energy = String(userState.energyLevel || '').toLowerCase();\n\n  if (\n    energy === 'high' &&\n    ['social', 'dating', 'nightlife', 'travel', 'fitness'].some(value =>\n      category.includes(value)\n    )\n  ) {\n    adjusted.funFactor += 0.5;\n    adjusted.confidenceGrowth += 0.5;\n    reasons.push('Current energy level supports an active plan.');\n  }\n\n  if (\n    energy === 'low' &&\n    ['nightlife', 'travel', 'fitness'].some(value =>\n      category.includes(value)\n    )\n  ) {\n    adjusted.funFactor -= 1.5;\n    adjusted.healthImpact -= 0.5;\n    reasons.push('Low energy reduces suitability.');\n  }\n\n  const budgetAED = Number(userState.budgetAED);\n\n  if (\n    Number.isFinite(budgetAED) &&\n    recommendation.estimatedCost !== null &&\n    recommendation.estimatedCost !== undefined\n  ) {\n    const cost = Number(recommendation.estimatedCost);\n\n    if (Number.isFinite(cost)) {\n      if (cost <= budgetAED) {\n        adjusted.costEfficiency += 0.5;\n        reasons.push('Estimated cost is within the current budget.');\n      } else {\n        const overRatio = cost / Math.max(1, budgetAED);\n        adjusted.costEfficiency -= Math.min(3, overRatio);\n        reasons.push('Estimated cost exceeds the current budget.');\n      }\n    }\n  }\n\n  for (const key of Object.keys(adjusted)) {\n    adjusted[key] = clamp10(adjusted[key]);\n  }\n\n  return { adjusted, reasons };\n};\n\nconst calculateWeightedScore = scores => {\n  let total = 0;\n\n  for (const [criterion, weight] of Object.entries(defaultWeights)) {\n    total += clamp10(scores[criterion]) * weight;\n  }\n\n  return clamp100(total / 10);\n};\n\nconst scored = recommendations.map((recommendation, index) => {\n  const baseProfile = getProfile(recommendation.category);\n  const enrichedProfile = enrichFromRawScores(\n    baseProfile,\n    recommendation.rawScores || {}\n  );\n\n  const { adjusted, reasons } =\n    applyContextAdjustments(enrichedProfile, recommendation);\n\n  const lifeImpactScore =\n    calculateWeightedScore(adjusted);\n\n  const eventScore =\n    clamp100(\n      recommendation.eventScore ??\n      recommendation.score ??\n      0\n    );\n\n  const personalFitScore =\n    clamp100(\n      (\n        clamp10(recommendation.rawScores?.audienceFit ?? 5) * 3 +\n        clamp10(recommendation.rawScores?.soloFriendly ?? 5) * 2 +\n        clamp10(recommendation.rawScores?.calendarCompatibility ?? 5) * 3 +\n        clamp10(recommendation.rawScores?.travelConvenience ?? 5) * 2\n      )\n    );\n\n  const confidence =\n    Math.max(\n      0,\n      Math.min(1, Number(recommendation.confidence ?? 0.5))\n    );\n\n  const confidenceScore =\n    clamp100(confidence * 100);\n\n  const finalScore = clamp100(\n    eventScore * 0.30 +\n    lifeImpactScore * 0.40 +\n    personalFitScore * 0.20 +\n    confidenceScore * 0.10\n  );\n\n  const lifeClassification =\n    finalScore >= 90 ? 'Transformative Opportunity' :\n    finalScore >= 80 ? 'High Life Impact' :\n    finalScore >= 70 ? 'Strong Life Fit' :\n    finalScore >= 55 ? 'Useful Option' :\n    'Low Priority';\n\n  return {\n    ...recommendation,\n    originalRank: recommendation.rank || index + 1,\n    eventScore,\n    lifeImpactScore,\n    personalFitScore,\n    confidenceScore,\n    finalScore,\n    lifeClassification,\n    lifeImpactBreakdown: adjusted,\n    lifeImpactReasons: reasons\n  };\n});\n\nconst ranked = scored\n  .sort((a, b) => {\n    if (b.finalScore !== a.finalScore) {\n      return b.finalScore - a.finalScore;\n    }\n\n    return b.lifeImpactScore - a.lifeImpactScore;\n  })\n  .map((item, index) => ({\n    lifeRank: index + 1,\n    ...item\n  }));\n\nconst topLifeOpportunities = ranked.slice(0, 5);\n\nconst priorityMix = {\n  datingAndSocial:\n    ranked.filter(item =>\n      ['social', 'dating', 'nightlife', 'networking'].some(value =>\n        String(item.category || '').toLowerCase().includes(value)\n      )\n    ).length,\n  travel:\n    ranked.filter(item =>\n      String(item.category || '').toLowerCase().includes('travel')\n    ).length,\n  fitness:\n    ranked.filter(item =>\n      ['fitness', 'sports', 'wellness'].some(value =>\n        String(item.category || '').toLowerCase().includes(value)\n      )\n    ).length,\n  careerAndLearning:\n    ranked.filter(item =>\n      ['career', 'learning'].some(value =>\n        String(item.category || '').toLowerCase().includes(value)\n      )\n    ).length\n};\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      recommendationCount: recommendations.length,\n      topLifeOpportunities,\n      allLifeScoredRecommendations: ranked,\n      priorityMix,\n      scoringWeights: defaultWeights\n    },\n    memoryUpdates: topLifeOpportunities.map(item => ({\n      type: 'life_impact_score',\n      operation: 'append',\n      payload: {\n        recommendationId: item.id,\n        title: item.title,\n        category: item.category,\n        eventScore: item.eventScore,\n        lifeImpactScore: item.lifeImpactScore,\n        personalFitScore: item.personalFitScore,\n        finalScore: item.finalScore,\n        lifeClassification: item.lifeClassification,\n        createdAt: new Date().toISOString()\n      }\n    })),\n    approvalRequests: [],\n    logs: [{\n      timestamp: new Date().toISOString(),\n      workflow: 'Concierge OS - Life Impact Scoring Engine',\n      level: 'info',\n      correlationId: metadata.correlationId || '',\n      message:\n        `Calculated life impact for ${ranked.length} recommendations.`,\n      details: {\n        recommendationCount: ranked.length,\n        topRecommendation:\n          ranked[0]\n            ? {\n                id: ranked[0].id,\n                title: ranked[0].title,\n                finalScore: ranked[0].finalScore\n              }\n            : null,\n        priorityMix\n      }\n    }],\n    nextAction: {\n      type: 'build_life_strategy',\n      targetWorkflow: 'Concierge OS - Life Strategy Engine'\n    },\n    error: null\n  }\n}];\n"
+      },
+      "id": "ef8d9a50-a807-4e5f-b010-77b13f216b04",
+      "name": "Calculate Life Impact Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Life Impact Scoring Engine\n\nPurpose:\n\nRank opportunities by their effect on Savaş's life, not only by event quality.\n\nPriority order:\n\n1. Dating and social life\n2. Nightlife\n3. Travel\n4. Fitness and wellness\n5. Style and confidence\n6. Career and networking\n7. Culture and learning\n8. Finance\n\nScores produced:\n\n- eventScore\n- lifeImpactScore\n- personalFitScore\n- confidenceScore\n- finalScore\n\nFinal score weighting:\n\n- Event Score: 30%\n- Life Impact: 40%\n- Personal Fit: 20%\n- Confidence: 10%\n\nNo AI credits are used.\n",
+        "height": 460,
+        "width": 500
+      },
+      "id": "bd9d7972-770d-4a36-8ba0-4e9276e6358d",
+      "name": "LIFE IMPACT NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -610
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Life Impact Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Recommendation Engine": {
+      "main": [
+        [
+          {
+            "node": "Normalize Life Impact Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Life Impact Input": {
+      "main": [
+        [
+          {
+            "node": "Calculate Life Impact Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "f492e5c0-a782-42cc-bac0-ccc83df323e6",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
