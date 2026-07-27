@@ -1,0 +1,137 @@
+{
+  "name": "Concierge OS - Action Planner",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "dcc918ff-31d3-4704-858c-72ba54d9d30e",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -780,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "context",
+              "type": "object"
+            },
+            {
+              "name": "recommendationEngineOutput",
+              "type": "object"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "26cc8481-8aab-4dda-9732-ff9e7624657b",
+      "name": "Called by Recommendation Engine",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -780,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleRecommendationEngineOutput = {\n  success: true,\n  result: {\n    topRecommendations: [\n      {\n        rank: 1,\n        id: 'social-1',\n        title: 'International Social Mixer',\n        category: 'social',\n        source: 'manual_test',\n        sourceUrl: null,\n        start: '2026-08-01T20:00:00+04:00',\n        end: '2026-08-01T23:00:00+04:00',\n        location: 'Dubai Marina',\n        estimatedCost: 120,\n        currency: 'AED',\n        confidence: 0.90,\n        reason: 'Strong social fit and easy to attend alone.',\n        score: 88,\n        classification: 'Must Go',\n        requiresApproval: false,\n        approvalType: null\n      },\n      {\n        rank: 2,\n        id: 'fitness-1',\n        title: 'Boxing Class',\n        category: 'fitness',\n        source: 'manual_test',\n        sourceUrl: null,\n        start: '2026-08-02T19:30:00+04:00',\n        end: '2026-08-02T20:30:00+04:00',\n        location: 'Palm Jumeirah',\n        estimatedCost: 0,\n        currency: 'AED',\n        confidence: 0.95,\n        reason: 'Supports weekly fitness consistency.',\n        score: 80,\n        classification: 'Strong Match',\n        requiresApproval: false,\n        approvalType: null\n      }\n    ]\n  }\n};\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu akşam ne yapayım?',\n      channel: 'manual_test',\n      userId: 'savas',\n      conversationId: 'manual-test'\n    },\n    context: input.context || {\n      timezone: 'Asia/Dubai',\n      userContext: {\n        identity: { name: 'Savaş', language: 'Turkish' },\n        locations: {\n          home: 'Palm Jumeirah, Dubai',\n          work: 'Abu Dhabi'\n        }\n      },\n      derivedContext: {\n        calendarLoad: 'low',\n        isMondayOrTuesday: false,\n        preferredPlanningWindow: {\n          start: '17:00',\n          end: '23:00'\n        }\n      }\n    },\n    recommendationEngineOutput:\n      input.recommendationEngineOutput ||\n      (\n        input.result?.topRecommendations\n          ? input\n          : sampleRecommendationEngineOutput\n      ),\n    metadata: input.metadata || {\n      correlationId: `action-plan-${Date.now()}`,\n      testMode: true\n    }\n  }\n}];\n"
+      },
+      "id": "5090b908-604b-464e-829b-521cf7c31f44",
+      "name": "Normalize Action Planner Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -450,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nconst recommendationEngineOutput =\n  input.recommendationEngineOutput || {};\n\nconst recommendations =\n  recommendationEngineOutput.result?.topRecommendations ||\n  recommendationEngineOutput.topRecommendations ||\n  [];\n\nconst request = input.request || {};\nconst context = input.context || {};\nconst metadata = input.metadata || {};\n\nconst actions = [];\nconst logs = [];\nconst rejectedRecommendations = [];\n\nconst createActionId = (recommendationId, actionType, index) =>\n  `${recommendationId || 'rec'}-${actionType}-${index + 1}-${Date.now()}`;\n\nconst requiresApprovalByType = actionType => [\n  'calendar_create',\n  'calendar_update',\n  'calendar_delete',\n  'send_external_message',\n  'send_email',\n  'reservation_prepare',\n  'reservation_execute',\n  'purchase_prepare',\n  'purchase_execute',\n  'share_personal_data'\n].includes(actionType);\n\nconst riskByType = actionType => {\n  if ([\n    'purchase_execute',\n    'reservation_execute',\n    'calendar_delete',\n    'share_personal_data'\n  ].includes(actionType)) return 'high';\n\n  if ([\n    'calendar_create',\n    'calendar_update',\n    'send_external_message',\n    'send_email',\n    'reservation_prepare',\n    'purchase_prepare'\n  ].includes(actionType)) return 'medium';\n\n  return 'low';\n};\n\nconst addAction = ({\n  recommendation,\n  type,\n  title,\n  description,\n  payload = {},\n  channel = null,\n  scheduledFor = null,\n  priority = 'normal',\n  autoExecutable = false\n}) => {\n  const action = {\n    actionId: createActionId(\n      recommendation.id,\n      type,\n      actions.length\n    ),\n    recommendationId: recommendation.id,\n    recommendationTitle: recommendation.title,\n    type,\n    title,\n    description,\n    payload,\n    channel,\n    scheduledFor,\n    priority,\n    riskLevel: riskByType(type),\n    approvalRequired: requiresApprovalByType(type),\n    autoExecutable:\n      autoExecutable && !requiresApprovalByType(type),\n    status: 'planned',\n    createdAt: new Date().toISOString()\n  };\n\n  actions.push(action);\n};\n\nfor (const recommendation of recommendations) {\n  if (!recommendation?.id || !recommendation?.title) {\n    rejectedRecommendations.push({\n      recommendation,\n      reason: 'missing_id_or_title'\n    });\n    continue;\n  }\n\n  const category = String(\n    recommendation.category || 'general'\n  ).toLowerCase();\n\n  addAction({\n    recommendation,\n    type: 'show_recommendation',\n    title: `Show recommendation: ${recommendation.title}`,\n    description:\n      recommendation.reason ||\n      'Present this recommendation to the user.',\n    payload: {\n      recommendation\n    },\n    channel: request.channel || 'chatgpt',\n    priority:\n      recommendation.rank === 1\n        ? 'high'\n        : 'normal',\n    autoExecutable: true\n  });\n\n  if (recommendation.start && recommendation.end) {\n    addAction({\n      recommendation,\n      type: 'calendar_create',\n      title: `Add ${recommendation.title} to calendar`,\n      description:\n        'Prepare a Google Calendar event for user approval.',\n      payload: {\n        title: recommendation.title,\n        start: recommendation.start,\n        end: recommendation.end,\n        location: recommendation.location || '',\n        description:\n          recommendation.reason || '',\n        sourceUrl:\n          recommendation.sourceUrl || null,\n        reminders: [\n          {\n            method: 'popup',\n            minutes: 60\n          }\n        ]\n      },\n      priority: recommendation.rank === 1 ? 'high' : 'normal'\n    });\n\n    addAction({\n      recommendation,\n      type: 'personal_reminder',\n      title: `Reminder for ${recommendation.title}`,\n      description:\n        'Prepare a personal reminder before the activity.',\n      payload: {\n        recommendationId: recommendation.id,\n        eventTitle: recommendation.title,\n        eventStart: recommendation.start,\n        reminderMinutesBefore: 60\n      },\n      channel: 'telegram',\n      scheduledFor: recommendation.start,\n      autoExecutable: true\n    });\n  }\n\n  if (\n    ['social', 'networking', 'dating'].includes(category)\n  ) {\n    addAction({\n      recommendation,\n      type: 'preparation_checklist',\n      title: `Prepare for ${recommendation.title}`,\n      description:\n        'Generate an outfit, grooming, arrival and social-confidence checklist.',\n      payload: {\n        checklistType: 'social_event',\n        include: [\n          'outfit',\n          'grooming',\n          'arrival_time',\n          'conversation_starters',\n          'social_mission'\n        ]\n      },\n      channel: 'chatgpt',\n      autoExecutable: true\n    });\n\n    addAction({\n      recommendation,\n      type: 'feedback_request',\n      title: `Collect feedback for ${recommendation.title}`,\n      description:\n        'Ask for attendance, rating, whether new people were met, and whether to repeat.',\n      payload: {\n        recommendationId: recommendation.id,\n        questions: [\n          'Did you attend?',\n          'Rate the activity from 1 to 5.',\n          'Did you meet someone new?',\n          'Would you attend a similar activity again?'\n        ]\n      },\n      channel: 'telegram',\n      scheduledFor: recommendation.end || null,\n      autoExecutable: true\n    });\n  }\n\n  if (\n    ['fitness', 'sports', 'wellness', 'recovery'].includes(category)\n  ) {\n    addAction({\n      recommendation,\n      type: 'fitness_preparation',\n      title: `Prepare for ${recommendation.title}`,\n      description:\n        'Prepare workout, hydration, equipment and recovery guidance.',\n      payload: {\n        checklistType: 'fitness',\n        include: [\n          'equipment',\n          'hydration',\n          'arrival_time',\n          'recovery'\n        ]\n      },\n      channel: 'chatgpt',\n      autoExecutable: true\n    });\n\n    addAction({\n      recommendation,\n      type: 'feedback_request',\n      title: `Collect workout feedback for ${recommendation.title}`,\n      description:\n        'Ask for attendance, intensity, enjoyment and recovery.',\n      payload: {\n        recommendationId: recommendation.id,\n        questions: [\n          'Did you attend?',\n          'Rate the session from 1 to 5.',\n          'How intense was it?',\n          'Would you repeat it?'\n        ]\n      },\n      channel: 'telegram',\n      scheduledFor: recommendation.end || null,\n      autoExecutable: true\n    });\n  }\n\n  if (category === 'travel') {\n    addAction({\n      recommendation,\n      type: 'travel_plan',\n      title: `Build travel plan for ${recommendation.title}`,\n      description:\n        'Prepare transport, hotel, budget, weather, packing and calendar-block options.',\n      payload: {\n        checklistType: 'travel',\n        include: [\n          'transport',\n          'hotel',\n          'estimated_budget',\n          'weather',\n          'packing',\n          'calendar_block'\n        ]\n      },\n      channel: 'chatgpt',\n      autoExecutable: true\n    });\n\n    addAction({\n      recommendation,\n      type: 'reservation_prepare',\n      title: `Prepare reservation options for ${recommendation.title}`,\n      description:\n        'Prepare but do not execute travel or hotel reservations.',\n      payload: {\n        recommendationId: recommendation.id,\n        recommendation\n      }\n    });\n  }\n\n  addAction({\n    recommendation,\n    type: 'memory_update',\n    title: `Store recommendation history: ${recommendation.title}`,\n    description:\n      'Prepare a recommendation-history record for Memory Writer.',\n    payload: {\n      operation: 'append_recommendation',\n      record: {\n        id: recommendation.id,\n        title: recommendation.title,\n        category: recommendation.category || 'general',\n        score: recommendation.score ?? null,\n        classification:\n          recommendation.classification || null,\n        status: 'planned',\n        createdAt: new Date().toISOString()\n      }\n    },\n    autoExecutable: true\n  });\n}\n\nconst summary = {\n  recommendationCount: recommendations.length,\n  plannedActionCount: actions.length,\n  approvalRequiredCount:\n    actions.filter(action => action.approvalRequired).length,\n  autoExecutableCount:\n    actions.filter(action => action.autoExecutable).length,\n  highRiskCount:\n    actions.filter(action => action.riskLevel === 'high').length,\n  mediumRiskCount:\n    actions.filter(action => action.riskLevel === 'medium').length,\n  lowRiskCount:\n    actions.filter(action => action.riskLevel === 'low').length\n};\n\nconst approvalCandidates = actions\n  .filter(action => action.approvalRequired)\n  .map(action => ({\n    type: action.type,\n    status: 'proposed',\n    actionId: action.actionId,\n    summary: action.title,\n    riskLevel: action.riskLevel,\n    payload: action\n  }));\n\nconst memoryUpdates = actions\n  .filter(action => action.type === 'memory_update')\n  .map(action => action.payload);\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      summary,\n      actions,\n      rejectedRecommendations\n    },\n    memoryUpdates,\n    approvalRequests: approvalCandidates,\n    logs: [\n      {\n        timestamp: new Date().toISOString(),\n        workflow: 'Concierge OS - Action Planner',\n        level:\n          rejectedRecommendations.length\n            ? 'warning'\n            : 'info',\n        correlationId:\n          metadata.correlationId || '',\n        message:\n          `Created ${actions.length} actions from ${recommendations.length} recommendations.`,\n        details: {\n          summary,\n          rejectedCount:\n            rejectedRecommendations.length\n        }\n      }\n    ],\n    nextAction: {\n      type:\n        approvalCandidates.length\n          ? 'evaluate_approval'\n          : 'format_notification',\n      targetWorkflow:\n        approvalCandidates.length\n          ? 'Concierge OS - Approval Engine'\n          : 'Concierge OS - Notification Engine'\n    },\n    error: null\n  }\n}];\n"
+      },
+      "id": "9a835aa8-1ef6-419d-be11-55b3f41a103a",
+      "name": "Create Action Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -90,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Action Planner\n\nResponsibilities:\n\n1. Accept ranked recommendations.\n2. Convert each recommendation into standard actions.\n3. Separate recommendation presentation from external actions.\n4. Prepare calendar, reminders, checklists, feedback and memory actions.\n5. Assign risk level.\n6. Mark whether approval is required.\n7. Forward approval-required actions to Approval Engine.\n\nNo AI credits are used.\n\n### Manual test\n\nThe built-in test includes:\n\n- International Social Mixer\n- Boxing Class\n\nExpected actions include:\n\n- show recommendation\n- calendar create\n- personal reminder\n- preparation checklist\n- feedback request\n- memory update\n",
+        "height": 450,
+        "width": 470
+      },
+      "id": "10686964-81f8-4d14-9fd8-d0d7f124fa56",
+      "name": "ACTION PLANNER NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -780,
+        -600
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Action Planner Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Recommendation Engine": {
+      "main": [
+        [
+          {
+            "node": "Normalize Action Planner Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Action Planner Input": {
+      "main": [
+        [
+          {
+            "node": "Create Action Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "705e9267-b21b-46d6-9d8a-3a0813d7a6f7",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
