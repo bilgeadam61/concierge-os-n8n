@@ -1,0 +1,253 @@
+{
+  "name": "Concierge OS - Telegram Channel Connector",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "62374b0b-67c9-47c7-9168-d919e26e2762",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "telegramQueue",
+              "type": "array"
+            },
+            {
+              "name": "channelDispatcherOutput",
+              "type": "object"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "82fef8ef-7ce7-48c3-9d84-5fd9a14b0d19",
+      "name": "Called by Channel Dispatcher",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -900,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleQueue = [\n  {\n    dispatchId: 'dsp_sample_1',\n    chatId: '1938141471',\n    text: 'Add International Social Mixer to calendar?\\n\\nApprove / Reject / Alternative',\n    parseMode: 'Markdown',\n    buttons: [\n      { label: 'Approve', value: 'approve:social-1-calendar-2' },\n      { label: 'Reject', value: 'reject:social-1-calendar-2' },\n      { label: 'Alternative', value: 'alternative:social-1-calendar-2' }\n    ],\n    scheduledFor: null,\n    approvalId: 'apr_sample_123',\n    relatedActionId: 'social-1-calendar-2'\n  }\n];\n\nlet telegramQueue = [];\n\nif (Array.isArray(input.telegramQueue)) {\n  telegramQueue = input.telegramQueue;\n} else if (Array.isArray(input.result?.channelDispatch?.telegramQueue)) {\n  telegramQueue = input.result.channelDispatch.telegramQueue;\n} else if (\n  Array.isArray(\n    input.channelDispatcherOutput?.result?.channelDispatch?.telegramQueue\n  )\n) {\n  telegramQueue =\n    input.channelDispatcherOutput.result.channelDispatch.telegramQueue;\n} else {\n  telegramQueue = sampleQueue;\n}\n\nreturn [{\n  json: {\n    telegramQueue,\n    metadata: {\n      correlationId:\n        input.metadata?.correlationId ||\n        `telegram-${Date.now()}`,\n      dispatchEnabled:\n        input.metadata?.dispatchEnabled === true,\n      testMode:\n        input.metadata?.testMode ?? true,\n      ...input.metadata\n    }\n  }\n}];\n"
+      },
+      "id": "5622961c-bb36-40d7-bc83-c97d398cf5db",
+      "name": "Normalize Telegram Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst queue = Array.isArray($json.telegramQueue)\n  ? $json.telegramQueue\n  : [];\n\nconst metadata = $json.metadata || {};\nconst output = [];\n\nfor (let index = 0; index < queue.length; index++) {\n  const item = queue[index] || {};\n  const chatId = item.chatId ? String(item.chatId) : '';\n  const baseText = String(item.text || '').trim();\n\n  if (!chatId || !baseText) {\n    output.push({\n      json: {\n        valid: false,\n        shouldSend: false,\n        error: !chatId ? 'missing_chat_id' : 'missing_text',\n        dispatchId: item.dispatchId || null,\n        metadata\n      }\n    });\n    continue;\n  }\n\n  const buttonLines =\n    Array.isArray(item.buttons) && item.buttons.length\n      ? '\\n\\n' +\n        item.buttons\n          .map(button => `${button.label}: ${button.value}`)\n          .join('\\n')\n      : '';\n\n  output.push({\n    json: {\n      valid: true,\n      shouldSend: metadata.dispatchEnabled === true,\n      dispatchId:\n        item.dispatchId ||\n        `telegram-dispatch-${Date.now()}-${index + 1}`,\n      chatId,\n      text: `${baseText}${buttonLines}`.slice(0, 4000),\n      parseMode: item.parseMode || 'Markdown',\n      approvalId: item.approvalId || null,\n      relatedActionId: item.relatedActionId || null,\n      scheduledFor: item.scheduledFor || null,\n      metadata\n    }\n  });\n}\n\nif (!output.length) {\n  return [{\n    json: {\n      valid: false,\n      shouldSend: false,\n      error: 'empty_telegram_queue',\n      metadata\n    }\n  }];\n}\n\nreturn output;\n"
+      },
+      "id": "c19055fa-5aee-4b8f-8ef8-5d058ec21e19",
+      "name": "Expand Telegram Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2637a40e-f42b-4add-9844-0e89e8bfeed6",
+              "leftValue": "={{ $json.shouldSend }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0ff0b0d2-118c-4743-878f-d442914a0add",
+      "name": "Dispatch Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "762d3983-91b3-430e-9f0c-fc3ee0cbd4ba",
+      "name": "Send Telegram Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst original = $('Expand Telegram Queue').item.json || {};\nconst telegramResponse = $json || {};\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      mode: 'sent',\n      status: 'sent',\n      dispatchId: original.dispatchId || null,\n      chatId: original.chatId || null,\n      approvalId: original.approvalId || null,\n      relatedActionId: original.relatedActionId || null,\n      telegramResponse\n    },\n    memoryUpdates: [{\n      type: 'dispatch_history',\n      operation: 'append',\n      payload: {\n        dispatchId: original.dispatchId || null,\n        channel: 'telegram',\n        destination: original.chatId || null,\n        status: 'sent',\n        createdAt: new Date().toISOString()\n      }\n    }],\n    approvalRequests: [],\n    logs: [{\n      timestamp: new Date().toISOString(),\n      workflow: 'Concierge OS - Telegram Channel Connector',\n      level: 'info',\n      correlationId: original.metadata?.correlationId || '',\n      message: 'Telegram message sent.',\n      details: {\n        dispatchId: original.dispatchId || null,\n        chatId: original.chatId || null\n      }\n    }],\n    nextAction: {\n      type: 'await_user_response',\n      targetWorkflow: 'Concierge OS - Telegram Approval Response'\n    },\n    error: null\n  }\n}];\n"
+      },
+      "id": "090c79df-ce7e-424c-977f-7761ffd76ad6",
+      "name": "Build Sent Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst item = $json || {};\n\nreturn [{\n  json: {\n    success: item.valid === true,\n    result: {\n      mode: 'preview',\n      status: item.valid ? 'preview_ready' : 'rejected',\n      dispatchId: item.dispatchId || null,\n      chatId: item.chatId || null,\n      text: item.text || '',\n      approvalId: item.approvalId || null,\n      relatedActionId: item.relatedActionId || null,\n      reason:\n        item.valid\n          ? 'dispatchEnabled is false'\n          : item.error || 'invalid_payload'\n    },\n    memoryUpdates:\n      item.valid\n        ? [{\n            type: 'dispatch_history',\n            operation: 'append',\n            payload: {\n              dispatchId: item.dispatchId || null,\n              channel: 'telegram',\n              destination: item.chatId || null,\n              status: 'preview_ready',\n              createdAt: new Date().toISOString()\n            }\n          }]\n        : [],\n    approvalRequests: [],\n    logs: [{\n      timestamp: new Date().toISOString(),\n      workflow: 'Concierge OS - Telegram Channel Connector',\n      level: item.valid ? 'info' : 'warning',\n      correlationId: item.metadata?.correlationId || '',\n      message:\n        item.valid\n          ? 'Telegram payload prepared in preview mode.'\n          : 'Telegram payload rejected.',\n      details: {\n        dispatchId: item.dispatchId || null,\n        error: item.error || null\n      }\n    }],\n    nextAction: {\n      type: item.valid ? 'review_preview' : 'stop',\n      targetWorkflow: null\n    },\n    error:\n      item.valid\n        ? null\n        : {\n            code: item.error || 'INVALID_TELEGRAM_PAYLOAD',\n            message: 'Telegram payload is invalid.',\n            retryable: false\n          }\n  }\n}];\n"
+      },
+      "id": "d14ee53d-afb1-40ae-81eb-e7e2d185e21c",
+      "name": "Build Preview Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Telegram Channel Connector — Clean Version\n\nSafe default:\n`dispatchEnabled = false`\n\nFirst test:\n\n1. Run **Execute workflow from Manual Test**.\n2. Expected branch:\n   `Dispatch Enabled? → False → Build Preview Result`\n3. Open **Build Preview Result → Output → JSON**.\n4. Expected:\n   - `result.mode = preview`\n   - `result.status = preview_ready`\n\nFor real sending:\n\n1. Select Telegram credential in **Send Telegram Message**.\n2. Pass `metadata.dispatchEnabled = true`.\n3. Test with one message only.\n\nNo AI credits are used.\n",
+        "height": 420,
+        "width": 470
+      },
+      "id": "2fb2808a-0518-45eb-8f69-a938fff6bc18",
+      "name": "SETUP AND TEST",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        -470
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Telegram Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Channel Dispatcher": {
+      "main": [
+        [
+          {
+            "node": "Normalize Telegram Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Telegram Input": {
+      "main": [
+        [
+          {
+            "node": "Expand Telegram Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Telegram Queue": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Preview Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Message": {
+      "main": [
+        [
+          {
+            "node": "Build Sent Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "2843e407-1a9e-4894-9795-7df523211f46",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
