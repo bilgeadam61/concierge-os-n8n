@@ -1,0 +1,153 @@
+{
+  "name": "Concierge OS - Meetup Connector",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b4d45b91-ff39-4871-ae3a-316bf4970fc1",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -740,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "items",
+              "type": "array"
+            },
+            {
+              "name": "events",
+              "type": "array"
+            },
+            {
+              "name": "graphqlEvents",
+              "type": "array"
+            },
+            {
+              "name": "emails",
+              "type": "array"
+            },
+            {
+              "name": "forwardedItems",
+              "type": "array"
+            },
+            {
+              "name": "messages",
+              "type": "array"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "7b393032-2272-4a4a-8bff-0d481c6234b2",
+      "name": "Called by Social Discovery Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -740,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleItems = [\n  {\n    source: 'Meetup',\n    title: 'Dubai Expats Rooftop Social',\n    dateTime: '2026-08-08T20:00:00+04:00',\n    endTime: '2026-08-08T23:00:00+04:00',\n    venue: 'Palm Jumeirah, Dubai',\n    url: 'https://www.meetup.com/example/events/123456789/',\n    description: 'A rooftop social for international professionals and expats.',\n    price: 80,\n    currency: 'AED',\n    attendeesCount: 42,\n    groupName: 'Dubai Expats Social Club'\n  },\n  {\n    source: 'Meetup',\n    subject: 'Friday International Mixer',\n    body: `Friday International Mixer\nDate: 14 August 2026\nTime: 7:30 PM - 10:30 PM\nVenue: Dubai Marina\nPrice: AED 100\nMeet new people in a relaxed international crowd.`,\n    url: 'https://www.meetup.com/example/events/987654321/'\n  }\n];\n\nlet items = [];\n\nif (Array.isArray(input.items)) {\n  items = input.items;\n} else if (Array.isArray(input.events)) {\n  items = input.events;\n} else if (Array.isArray(input.graphqlEvents)) {\n  items = input.graphqlEvents;\n} else if (Array.isArray(input.emails)) {\n  items = input.emails;\n} else if (Array.isArray(input.forwardedItems)) {\n  items = input.forwardedItems;\n} else if (Array.isArray(input.messages)) {\n  items = input.messages;\n} else {\n  items = sampleItems;\n}\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Meetup etkinliklerini getir',\n      channel: 'manual_test',\n      userId: 'savas'\n    },\n    items,\n    metadata: {\n      correlationId:\n        input.metadata?.correlationId ||\n        `meetup-${Date.now()}`,\n      testMode:\n        input.metadata?.testMode ?? true,\n      apiMode:\n        input.metadata?.apiMode || 'auto',\n      sourceWorkflow:\n        'Concierge OS - Meetup Connector',\n      ...input.metadata\n    }\n  }\n}];\n"
+      },
+      "id": "25991fd6-df03-4b27-bbf0-11af28bdd4f9",
+      "name": "Normalize Meetup Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -410,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nconst items = Array.isArray(input.items) ? input.items : [];\nconst metadata = input.metadata || {};\n\nconst monthMap = {\n  january: 0, february: 1, march: 2, april: 3,\n  may: 4, june: 5, july: 6, august: 7,\n  september: 8, october: 9, november: 10, december: 11\n};\n\nconst normalizeSpace = value =>\n  String(value || '').replace(/\\s+/g, ' ').trim();\n\nconst parseDate = value => {\n  if (!value) return null;\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n};\n\nconst parseTime = value => {\n  const match = String(value || '').match(\n    /(\\d{1,2})(?::(\\d{2}))?\\s*(AM|PM)?/i\n  );\n\n  if (!match) return { hour: 19, minute: 0 };\n\n  let hour = Number(match[1]);\n  const minute = Number(match[2] || 0);\n  const meridiem = String(match[3] || '').toUpperCase();\n\n  if (meridiem === 'PM' && hour < 12) hour += 12;\n  if (meridiem === 'AM' && hour === 12) hour = 0;\n\n  return { hour, minute };\n};\n\nconst parseTextDate = text => {\n  const compact = normalizeSpace(text);\n\n  const isoMatch = compact.match(\n    /(\\d{4})-(\\d{2})-(\\d{2})(?:[T\\s](\\d{1,2}):(\\d{2}))?/\n  );\n\n  if (isoMatch) {\n    return new Date(\n      `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T${isoMatch[4] || '19'}:${isoMatch[5] || '00'}:00+04:00`\n    );\n  }\n\n  const named = compact.match(\n    /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)?[,]?\\s*(\\d{1,2})\\s+(January|February|March|April|May|June|July|August|September|October|November|December)\\s*(\\d{4})?/i\n  );\n\n  if (!named) return null;\n\n  const day = Number(named[1]);\n  const month = monthMap[named[2].toLowerCase()];\n  const year = Number(named[3] || new Date().getFullYear());\n\n  const timeMatch = compact.match(\n    /(?:Time:|at)\\s*(\\d{1,2}(?::\\d{2})?\\s*(?:AM|PM)?)/i\n  );\n\n  const time = parseTime(timeMatch ? timeMatch[1] : null);\n\n  return new Date(\n    Date.UTC(\n      year,\n      month,\n      day,\n      time.hour - 4,\n      time.minute\n    )\n  );\n};\n\nconst parseEndFromRange = (text, start) => {\n  if (!start) return null;\n\n  const range = String(text || '').match(\n    /(\\d{1,2}(?::\\d{2})?\\s*(?:AM|PM)?)\\s*[-–]\\s*(\\d{1,2}(?::\\d{2})?\\s*(?:AM|PM)?)/i\n  );\n\n  if (!range) {\n    return new Date(start.getTime() + 3 * 60 * 60 * 1000);\n  }\n\n  const endTime = parseTime(range[2]);\n  const end = new Date(start);\n  end.setUTCHours(endTime.hour - 4, endTime.minute, 0, 0);\n\n  if (end <= start) {\n    end.setUTCDate(end.getUTCDate() + 1);\n  }\n\n  return end;\n};\n\nconst extractUrl = item => {\n  if (item.eventUrl) return item.eventUrl;\n  if (item.url) return item.url;\n  if (item.link) return item.link;\n\n  const text =\n    `${item.title || ''} ${item.subject || ''} ${item.body || ''} ${item.description || ''}`;\n\n  const match = text.match(\n    /https?:\\/\\/(?:www\\.)?meetup\\.com\\/[^\\s)>\\]]+/i\n  );\n\n  return match ? match[0] : null;\n};\n\nconst extractPrice = item => {\n  if (item.price !== undefined && item.price !== null) {\n    return Number(item.price);\n  }\n\n  const text =\n    `${item.body || ''} ${item.description || ''}`;\n\n  if (/\\bfree\\b/i.test(text)) return 0;\n\n  const match =\n    text.match(/AED\\s*([0-9]+(?:\\.[0-9]+)?)/i) ||\n    text.match(/([0-9]+(?:\\.[0-9]+)?)\\s*AED/i);\n\n  return match ? Number(match[1]) : null;\n};\n\nconst extractLocation = item => {\n  const direct =\n    item.venue?.name ||\n    item.venue?.address ||\n    item.venue ||\n    item.location ||\n    item.city;\n\n  if (direct) return normalizeSpace(direct);\n\n  const text =\n    `${item.body || ''}\\n${item.description || ''}`;\n\n  const labeled = text.match(\n    /(?:Venue|Location|Place):\\s*([^\\n\\r]+)/i\n  );\n\n  return labeled ? normalizeSpace(labeled[1]) : '';\n};\n\nconst inferCategory = item => {\n  const text = normalizeSpace(\n    `${item.category || ''} ${item.title || ''} ${item.subject || ''} ${item.description || ''} ${item.body || ''}`\n  ).toLowerCase();\n\n  if (\n    text.includes('singles') ||\n    text.includes('dating') ||\n    text.includes('speed dating')\n  ) return 'dating';\n\n  if (\n    text.includes('party') ||\n    text.includes('nightlife') ||\n    text.includes('rooftop') ||\n    text.includes('dj')\n  ) return 'nightlife';\n\n  if (\n    text.includes('boxing') ||\n    text.includes('fitness') ||\n    text.includes('padel') ||\n    text.includes('tennis')\n  ) return 'fitness';\n\n  if (\n    text.includes('trip') ||\n    text.includes('travel') ||\n    text.includes('hiking')\n  ) return 'travel';\n\n  if (\n    text.includes('cyber') ||\n    text.includes('cloud') ||\n    text.includes('career') ||\n    text.includes('professional networking')\n  ) return 'career';\n\n  return 'social';\n};\n\nconst events = [];\nconst rejected = [];\n\nfor (let index = 0; index < items.length; index++) {\n  const item = items[index] || {};\n\n  const title = normalizeSpace(\n    item.title ||\n    item.name ||\n    item.eventTitle ||\n    item.subject ||\n    ''\n  );\n\n  if (!title) {\n    rejected.push({\n      index,\n      reason: 'missing_title',\n      item\n    });\n    continue;\n  }\n\n  const combinedText =\n    `${item.subject || ''}\\n${item.body || ''}\\n${item.description || ''}`;\n\n  const start =\n    parseDate(\n      item.dateTime ||\n      item.start ||\n      item.startTime ||\n      item.date\n    ) ||\n    parseTextDate(combinedText);\n\n  if (!start) {\n    rejected.push({\n      index,\n      title,\n      reason: 'missing_or_invalid_start',\n      item\n    });\n    continue;\n  }\n\n  const end =\n    parseDate(item.endTime || item.end) ||\n    parseEndFromRange(combinedText, start);\n\n  const location = extractLocation(item);\n  const sourceUrl = extractUrl(item);\n  const estimatedCost = extractPrice(item);\n\n  const attendeesCount = Number(\n    item.attendeesCount ??\n    item.going ??\n    item.rsvpCount ??\n    item.rsvps ??\n    0\n  );\n\n  const groupName = normalizeSpace(\n    item.groupName ||\n    item.group?.name ||\n    item.group ||\n    ''\n  );\n\n  const description = normalizeSpace(\n    item.description ||\n    item.body ||\n    item.snippet ||\n    ''\n  ).slice(0, 1500);\n\n  const confidenceParts = [\n    Boolean(title),\n    Boolean(start),\n    Boolean(location),\n    Boolean(sourceUrl),\n    Boolean(description)\n  ];\n\n  const confidence =\n    confidenceParts.filter(Boolean).length /\n    confidenceParts.length;\n\n  events.push({\n    id:\n      item.id ||\n      item.eventId ||\n      `meetup-${Date.now()}-${index + 1}`,\n    source: 'Meetup',\n    platform: 'Meetup',\n    title,\n    start: start.toISOString(),\n    end: end ? end.toISOString() : null,\n    location,\n    sourceUrl,\n    estimatedCost,\n    currency: item.currency || 'AED',\n    category: inferCategory(item),\n    description,\n    confidence,\n    metadata: {\n      groupName,\n      attendeesCount:\n        Number.isFinite(attendeesCount)\n          ? attendeesCount\n          : null,\n      originalItem: item,\n      parsedAt: new Date().toISOString(),\n      inputMode:\n        item.dateTime || item.start\n          ? 'structured_or_graphql'\n          : 'email_or_forward'\n    }\n  });\n}\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      source: 'Meetup',\n      apiEndpoint: 'https://api.meetup.com/gql-ext',\n      inputItemCount: items.length,\n      eventCount: events.length,\n      events,\n      rejectedItems: rejected\n    },\n    memoryUpdates: events.map(event => ({\n      type: 'source_event',\n      operation: 'append',\n      payload: {\n        id: event.id,\n        source: event.source,\n        title: event.title,\n        start: event.start,\n        location: event.location,\n        sourceUrl: event.sourceUrl,\n        status: 'collected',\n        collectedAt: new Date().toISOString()\n      }\n    })),\n    approvalRequests: [],\n    logs: [{\n      timestamp: new Date().toISOString(),\n      workflow: 'Concierge OS - Meetup Connector',\n      level: rejected.length ? 'warning' : 'info',\n      correlationId:\n        metadata.correlationId || '',\n      message:\n        `Parsed ${events.length} Meetup events from ${items.length} source items.`,\n      details: {\n        inputItemCount: items.length,\n        eventCount: events.length,\n        rejectedCount: rejected.length,\n        apiMode: metadata.apiMode || 'auto'\n      }\n    }],\n    nextAction: {\n      type: 'merge_social_sources',\n      targetWorkflow:\n        'Concierge OS - Social Discovery Agent'\n    },\n    error: null\n  }\n}];\n"
+      },
+      "id": "50d6ef31-4a23-4672-a36b-3e5067ed3081",
+      "name": "Parse Meetup Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Meetup Connector\n\nSupported modes:\n\n### 1. Meetup Pro GraphQL\nPass structured GraphQL event records through `graphqlEvents`.\n\nCurrent official endpoint:\n`https://api.meetup.com/gql-ext`\n\n### 2. Email / Forward mode\nPass Meetup emails, Telegram/WhatsApp forwards, or manually copied event text.\n\nExtracts:\n\n- title\n- start/end\n- venue\n- price\n- event URL\n- group name\n- RSVP/attendee count\n- category\n- confidence\n\nThis workflow does not perform unauthorized scraping.\n\nNo AI credits are used.\n",
+        "height": 470,
+        "width": 500
+      },
+      "id": "bb134006-2b86-46ec-b55c-762276cd5a32",
+      "name": "MEETUP CONNECTOR NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -740,
+        -610
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Meetup Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Social Discovery Agent": {
+      "main": [
+        [
+          {
+            "node": "Normalize Meetup Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Meetup Input": {
+      "main": [
+        [
+          {
+            "node": "Parse Meetup Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "44dc7e52-c043-47b4-8f26-f99143fb1ac2",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
