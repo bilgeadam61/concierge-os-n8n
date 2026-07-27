@@ -1,0 +1,137 @@
+{
+  "name": "Concierge OS - Notification Engine",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c56b3963-c668-4988-a7da-01b00f25425f",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "context",
+              "type": "object"
+            },
+            {
+              "name": "approvalEngineOutput",
+              "type": "object"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "fcd56a13-57ca-4872-b9b1-af510b8b96a0",
+      "name": "Called by Approval Engine",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -800,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleApprovalOutput = {\n  success: true,\n  result: {\n    summary: {\n      inputActionCount: 4,\n      evaluatedActionCount: 4,\n      pendingApprovalCount: 1,\n      autoApprovedCount: 2,\n      blockedCount: 1,\n      rejectedCount: 0\n    },\n    pendingApprovals: [\n      {\n        approvalId: 'apr_sample_123',\n        actionId: 'social-1-calendar-2',\n        recommendationId: 'social-1',\n        type: 'calendar_create',\n        status: 'pending_approval',\n        riskLevel: 'medium',\n        summary: 'Add International Social Mixer to calendar',\n        description: 'Prepare a Google Calendar event for user approval.',\n        payload: {\n          title: 'International Social Mixer',\n          start: '2026-08-01T20:00:00+04:00',\n          end: '2026-08-01T23:00:00+04:00',\n          location: 'Dubai Marina'\n        },\n        channel: 'telegram',\n        createdAt: new Date().toISOString(),\n        expiresAt: new Date(Date.now() + 86400000).toISOString(),\n        allowedResponses: ['approve', 'reject', 'alternative']\n      }\n    ],\n    autoApprovedActions: [\n      {\n        actionId: 'social-1-show-1',\n        recommendationId: 'social-1',\n        recommendationTitle: 'International Social Mixer',\n        type: 'show_recommendation',\n        title: 'Show recommendation: International Social Mixer',\n        description: 'Strong social fit and easy to attend alone.',\n        payload: {\n          recommendation: {\n            title: 'International Social Mixer',\n            score: 88,\n            classification: 'Must Go',\n            reason: 'Strong social fit and easy to attend alone.',\n            location: 'Dubai Marina',\n            start: '2026-08-01T20:00:00+04:00',\n            estimatedCost: 120,\n            currency: 'AED'\n          }\n        },\n        channel: 'chatgpt',\n        priority: 'high',\n        status: 'approved'\n      },\n      {\n        actionId: 'social-1-reminder-3',\n        recommendationId: 'social-1',\n        recommendationTitle: 'International Social Mixer',\n        type: 'personal_reminder',\n        title: 'Reminder for International Social Mixer',\n        description: 'Prepare a personal reminder.',\n        payload: {\n          eventTitle: 'International Social Mixer',\n          eventStart: '2026-08-01T20:00:00+04:00',\n          reminderMinutesBefore: 60\n        },\n        channel: 'telegram',\n        scheduledFor: '2026-08-01T20:00:00+04:00',\n        status: 'approved'\n      }\n    ],\n    blockedActions: [\n      {\n        actionId: 'travel-1-purchase-4',\n        type: 'purchase_execute',\n        title: 'Purchase trip booking',\n        status: 'blocked',\n        reason: 'Execution of purchases is not supported.'\n      }\n    ]\n  }\n};\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu akşam ne yapayım?',\n      channel: 'manual_test',\n      userId: 'savas',\n      conversationId: 'manual-test'\n    },\n    context: input.context || {\n      timezone: 'Asia/Dubai',\n      userContext: {\n        identity: {\n          name: 'Savaş',\n          language: 'Turkish'\n        }\n      }\n    },\n    approvalEngineOutput:\n      input.approvalEngineOutput ||\n      (\n        input.result?.pendingApprovals || input.result?.autoApprovedActions\n          ? input\n          : sampleApprovalOutput\n      ),\n    metadata: input.metadata || {\n      correlationId: `notification-${Date.now()}`,\n      testMode: true\n    }\n  }\n}];\n"
+      },
+      "id": "4a0bcf9e-f765-49d4-8510-1817cb6e4ead",
+      "name": "Normalize Notification Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nconst approvalOutput = input.approvalEngineOutput || {};\nconst result = approvalOutput.result || {};\nconst request = input.request || {};\nconst context = input.context || {};\nconst metadata = input.metadata || {};\n\nconst pendingApprovals = Array.isArray(result.pendingApprovals)\n  ? result.pendingApprovals\n  : [];\n\nconst autoApprovedActions = Array.isArray(result.autoApprovedActions)\n  ? result.autoApprovedActions\n  : [];\n\nconst blockedActions = Array.isArray(result.blockedActions)\n  ? result.blockedActions\n  : [];\n\nconst userName =\n  context.userContext?.identity?.name ||\n  context.identity?.name ||\n  'Savaş';\n\nconst language =\n  context.userContext?.identity?.language ||\n  context.identity?.language ||\n  'Turkish';\n\nconst notifications = [];\nconst logs = [];\n\nconst formatDateTime = value => {\n  if (!value) return null;\n  const date = new Date(value);\n  if (Number.isNaN(date.getTime())) return value;\n\n  return new Intl.DateTimeFormat('en-GB', {\n    timeZone: 'Asia/Dubai',\n    dateStyle: 'medium',\n    timeStyle: 'short'\n  }).format(date);\n};\n\nconst chooseChannel = preferred => {\n  if (preferred === 'telegram') return 'telegram';\n  if (preferred === 'whatsapp') return 'whatsapp';\n  if (preferred === 'chatgpt') return 'chatgpt';\n  return request.channel || 'chatgpt';\n};\n\nconst addNotification = ({\n  channel,\n  type,\n  title,\n  message,\n  buttons = [],\n  scheduledFor = null,\n  priority = 'normal',\n  relatedActionId = null,\n  approvalId = null,\n  metadata: extraMetadata = {}\n}) => {\n  notifications.push({\n    notificationId:\n      `ntf_${Date.now()}_${notifications.length + 1}`,\n    channel,\n    type,\n    title,\n    message,\n    buttons,\n    scheduledFor,\n    priority,\n    relatedActionId,\n    approvalId,\n    status: 'prepared',\n    createdAt: new Date().toISOString(),\n    metadata: extraMetadata\n  });\n};\n\n// 1. Approval notifications\nfor (const approval of pendingApprovals) {\n  const payload = approval.payload || {};\n  const eventStart = formatDateTime(payload.start);\n  const eventEnd = formatDateTime(payload.end);\n\n  const detailLines = [\n    approval.description || '',\n    payload.location ? `Location: ${payload.location}` : '',\n    eventStart ? `Start: ${eventStart}` : '',\n    eventEnd ? `End: ${eventEnd}` : '',\n    `Risk: ${approval.riskLevel || 'medium'}`\n  ].filter(Boolean);\n\n  addNotification({\n    channel: chooseChannel(approval.channel || 'telegram'),\n    type: 'approval_request',\n    title: approval.summary || 'Approval required',\n    message:\n      `${approval.summary || 'Approval required'}\\n\\n` +\n      `${detailLines.join('\\n')}\\n\\n` +\n      `Proceed with this action?`,\n    buttons: [\n      {\n        label: 'Approve',\n        value: `approve:${approval.actionId}`\n      },\n      {\n        label: 'Reject',\n        value: `reject:${approval.actionId}`\n      },\n      {\n        label: 'Alternative',\n        value: `alternative:${approval.actionId}`\n      }\n    ],\n    priority:\n      approval.riskLevel === 'high'\n        ? 'high'\n        : 'normal',\n    relatedActionId: approval.actionId,\n    approvalId: approval.approvalId,\n    metadata: {\n      expiresAt: approval.expiresAt,\n      allowedResponses: approval.allowedResponses || []\n    }\n  });\n}\n\n// 2. Auto-approved actions\nfor (const action of autoApprovedActions) {\n  const type = String(action.type || '');\n  const preferredChannel = chooseChannel(action.channel);\n\n  if (type === 'show_recommendation') {\n    const recommendation =\n      action.payload?.recommendation || {};\n\n    const parts = [\n      recommendation.title || action.recommendationTitle || action.title,\n      recommendation.classification\n        ? `${recommendation.classification} · ${recommendation.score ?? ''}/100`\n        : '',\n      recommendation.reason || action.description || '',\n      recommendation.location\n        ? `Location: ${recommendation.location}`\n        : '',\n      recommendation.start\n        ? `Time: ${formatDateTime(recommendation.start)}`\n        : '',\n      recommendation.estimatedCost !== null &&\n      recommendation.estimatedCost !== undefined\n        ? `Estimated cost: ${recommendation.estimatedCost} ${recommendation.currency || 'AED'}`\n        : ''\n    ].filter(Boolean);\n\n    addNotification({\n      channel: preferredChannel,\n      type: 'recommendation',\n      title:\n        recommendation.title ||\n        action.recommendationTitle ||\n        'Recommendation',\n      message: parts.join('\\n'),\n      priority: action.priority || 'normal',\n      relatedActionId: action.actionId\n    });\n  }\n\n  if (type === 'personal_reminder') {\n    const eventTitle =\n      action.payload?.eventTitle ||\n      action.recommendationTitle ||\n      action.title;\n\n    addNotification({\n      channel: preferredChannel || 'telegram',\n      type: 'reminder',\n      title: eventTitle,\n      message:\n        `${userName}, ${eventTitle} is coming up. ` +\n        `Prepare and leave enough travel time.`,\n      scheduledFor: action.scheduledFor || null,\n      priority: action.priority || 'normal',\n      relatedActionId: action.actionId\n    });\n  }\n\n  if (type === 'feedback_request') {\n    addNotification({\n      channel: preferredChannel || 'telegram',\n      type: 'feedback_request',\n      title:\n        `How was ${action.recommendationTitle || 'the activity'}?`,\n      message:\n        `Did you attend? Rate it from 1 to 5, tell me whether you met someone new, and whether you would repeat it.`,\n      buttons: [\n        { label: 'Attended', value: `attended:${action.actionId}` },\n        { label: 'Did not attend', value: `not_attended:${action.actionId}` }\n      ],\n      scheduledFor: action.scheduledFor || null,\n      priority: 'normal',\n      relatedActionId: action.actionId\n    });\n  }\n\n  if (\n    ['preparation_checklist', 'fitness_preparation', 'travel_plan'].includes(type)\n  ) {\n    addNotification({\n      channel: preferredChannel || 'chatgpt',\n      type: 'preparation',\n      title: action.title,\n      message:\n        `${action.description || 'Preparation is ready.'}\\n\\n` +\n        `Open ChatGPT Mobile for the detailed plan.`,\n      priority: action.priority || 'normal',\n      relatedActionId: action.actionId\n    });\n  }\n}\n\n// 3. Blocked action notifications\nfor (const action of blockedActions) {\n  addNotification({\n    channel: request.channel || 'chatgpt',\n    type: 'blocked_action',\n    title: action.title || 'Action blocked',\n    message:\n      `${action.reason || 'This action cannot be executed automatically.'}\\n\\n` +\n      `I can still prepare options or instructions for you.`,\n    priority: 'high',\n    relatedActionId: action.actionId\n  });\n}\n\n// 4. Channel payloads\nconst chatgptMessages = notifications\n  .filter(item => item.channel === 'chatgpt')\n  .map(item => ({\n    notificationId: item.notificationId,\n    title: item.title,\n    message: item.message,\n    type: item.type\n  }));\n\nconst telegramMessages = notifications\n  .filter(item => item.channel === 'telegram')\n  .map(item => ({\n    notificationId: item.notificationId,\n    chatId:\n      request.telegramChatId ||\n      request.userId ||\n      null,\n    text: `*${item.title}*\\n\\n${item.message}`,\n    parseMode: 'Markdown',\n    buttons: item.buttons,\n    scheduledFor: item.scheduledFor,\n    type: item.type,\n    approvalId: item.approvalId,\n    relatedActionId: item.relatedActionId\n  }));\n\nconst whatsappMessages = notifications\n  .filter(item => item.channel === 'whatsapp')\n  .map(item => ({\n    notificationId: item.notificationId,\n    to:\n      request.whatsappNumber ||\n      null,\n    text:\n      `${item.title}\\n\\n${item.message}`,\n    scheduledFor: item.scheduledFor,\n    type: item.type,\n    relatedActionId: item.relatedActionId\n  }));\n\nconst summary = {\n  notificationCount: notifications.length,\n  chatgptCount: chatgptMessages.length,\n  telegramCount: telegramMessages.length,\n  whatsappCount: whatsappMessages.length,\n  approvalNotificationCount:\n    notifications.filter(item => item.type === 'approval_request').length,\n  reminderCount:\n    notifications.filter(item => item.type === 'reminder').length,\n  blockedNotificationCount:\n    notifications.filter(item => item.type === 'blocked_action').length\n};\n\nlet nextAction;\n\nif (notifications.length === 0) {\n  nextAction = {\n    type: 'stop',\n    targetWorkflow: null\n  };\n} else {\n  nextAction = {\n    type: 'dispatch_notifications',\n    targetWorkflow: 'Concierge OS - Channel Dispatcher'\n  };\n}\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      summary,\n      notifications,\n      channelPayloads: {\n        chatgpt: chatgptMessages,\n        telegram: telegramMessages,\n        whatsapp: whatsappMessages\n      }\n    },\n    memoryUpdates: notifications.map(item => ({\n      type: 'notification_history',\n      operation: 'append',\n      payload: {\n        notificationId: item.notificationId,\n        channel: item.channel,\n        type: item.type,\n        title: item.title,\n        status: item.status,\n        createdAt: item.createdAt\n      }\n    })),\n    approvalRequests: pendingApprovals,\n    logs: [\n      {\n        timestamp: new Date().toISOString(),\n        workflow: 'Concierge OS - Notification Engine',\n        level: 'info',\n        correlationId: metadata.correlationId || '',\n        message:\n          `Prepared ${notifications.length} notifications.`,\n        details: summary\n      },\n      ...logs\n    ],\n    nextAction,\n    error: null\n  }\n}];\n"
+      },
+      "id": "36fa062d-5245-4680-ada4-61eb69b0a111",
+      "name": "Build Channel Notifications",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Notification Engine\n\nResponsibilities:\n\n1. Accept Approval Engine output.\n2. Build channel-neutral notifications.\n3. Produce ChatGPT Mobile payloads.\n4. Produce Telegram payloads with approval buttons.\n5. Produce WhatsApp reminder payloads.\n6. Format blocked-action messages.\n7. Prepare notification-history memory updates.\n\nThis workflow prepares payloads only.\nIt does not send messages yet.\n\n### Channel roles\n\nChatGPT:\n- detailed recommendation\n- preparation plans\n- longer explanations\n\nTelegram:\n- approvals\n- reminders\n- feedback prompts\n\nWhatsApp:\n- short personal reminders\n- critical alerts\n\nNo AI credits are used.\n",
+        "height": 480,
+        "width": 480
+      },
+      "id": "9c87e6de-feb6-46c1-ba7e-e596bf72e775",
+      "name": "NOTIFICATION ENGINE NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -620
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Notification Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Approval Engine": {
+      "main": [
+        [
+          {
+            "node": "Normalize Notification Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Notification Input": {
+      "main": [
+        [
+          {
+            "node": "Build Channel Notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "3291729b-fac8-4c02-ae2d-067a1cefbfa3",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
