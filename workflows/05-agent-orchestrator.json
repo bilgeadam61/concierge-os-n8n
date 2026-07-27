@@ -1,0 +1,161 @@
+{
+  "name": "Concierge OS - Agent Orchestrator",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "05665ebe-0773-4c08-8e57-70d529e00741",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "context",
+              "type": "object"
+            },
+            {
+              "name": "decision",
+              "type": "object"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "01ce3638-08c8-4834-a6f4-0cb66b9d442e",
+      "name": "Called by Main Orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -820,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json || {};\n\nconst sampleContext = {\n  version: '1.0',\n  generatedAt: new Date().toISOString(),\n  timezone: 'Asia/Dubai',\n  request: { text: 'Bu akşam ne yapayım?' },\n  userContext: {\n    identity: { name: 'Savaş', language: 'Turkish' },\n    locations: { home: 'Palm Jumeirah, Dubai', work: 'Abu Dhabi' }\n  },\n  calendarContext: { today: [], tomorrow: [], thisWeek: [] },\n  derivedContext: {\n    isWeekend: true,\n    calendarLoad: 'low',\n    needsMoreSocial: true,\n    needsMoreFitness: true\n  }\n};\n\nconst sampleDecision = {\n  route: 'social_discovery',\n  agentWorkflowName: 'Concierge OS - Social Discovery Agent',\n  actionMode: 'discover_analyze_recommend',\n  confidence: 0.90,\n  isAmbiguous: false,\n  needsDiscovery: true,\n  requiresApproval: false,\n  requiredContext: ['memory', 'calendar', 'derived_context'],\n  reason: 'Manual test route.'\n};\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu akşam ne yapayım?',\n      channel: 'manual_test',\n      userId: 'savas',\n      conversationId: 'manual-test'\n    },\n    context: Object.keys(input.context || {}).length ? input.context : sampleContext,\n    decision: Object.keys(input.decision || {}).length ? input.decision : sampleDecision,\n    metadata: input.metadata || {\n      sourceWorkflow: 'Manual Test',\n      testMode: true\n    }\n  }\n}];"
+      },
+      "id": "6d9869c6-f872-4898-b866-d3b387c7e49e",
+      "name": "Normalize Agent Orchestrator Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json || {};\nconst request = input.request || {};\nconst context = input.context || {};\nconst decision = input.decision || {};\nconst metadata = {\n  correlationId: input.metadata?.correlationId || `concierge-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,\n  sourceWorkflow: input.metadata?.sourceWorkflow || 'Concierge OS - Agent Orchestrator',\n  testMode: input.metadata?.testMode ?? false,\n  ...input.metadata\n};\n\nconst registry = {\n  daily_planner: ['daily_planner','Concierge OS - Daily Planner','planning',true,'planned'],\n  weekly_planner: ['weekly_planner','Concierge OS - Weekly Planner','planning',true,'available'],\n  social_discovery: ['social_discovery','Concierge OS - Social Discovery Agent','social',true,'planned'],\n  sports_fitness: ['sports_fitness','Concierge OS - Sports and Fitness Agent','fitness',true,'planned'],\n  recovery_wellness: ['recovery_wellness','Concierge OS - Recovery and Wellness Coach','wellness',true,'planned'],\n  style_grooming: ['style_grooming','Concierge OS - Style and Grooming Coach','style',true,'planned'],\n  social_confidence: ['social_confidence','Concierge OS - Social Confidence Coach','social_confidence',true,'planned'],\n  travel: ['travel','Concierge OS - Travel Scout','travel',true,'planned'],\n  career_learning: ['career_learning','Concierge OS - Career and Learning Coach','career',true,'planned'],\n  finance: ['finance','Concierge OS - Finance Coach','finance',true,'planned'],\n  feedback: ['feedback','Concierge OS - Feedback Collector','feedback',false,'planned'],\n  profile_update: ['profile_update','Concierge OS - Memory Manager','memory',false,'available'],\n  calendar_action: ['calendar_action','Concierge OS - Calendar Approval','approval',false,'planned'],\n  general_concierge: ['general_concierge','Concierge OS - General Concierge','general',true,'planned']\n};\n\nlet route = String(decision.route || 'general_concierge');\nconst warnings = [];\n\nif (!registry[route]) {\n  warnings.push(`Unknown route '${route}', falling back to general_concierge.`);\n  route = 'general_concierge';\n}\n\nconst [agent, workflowName, category, requiresLLM, status] = registry[route];\n\nconst requiredContext = Array.isArray(decision.requiredContext) ? decision.requiredContext : [];\nconst missingContext = [];\n\nif (requiredContext.includes('memory') && !context.userContext) missingContext.push('memory');\nif (requiredContext.includes('calendar') && !context.calendarContext && !context.calendar) missingContext.push('calendar');\nif (requiredContext.includes('derived_context') && !context.derivedContext && !context.derived) missingContext.push('derived_context');\n\nif (missingContext.length) warnings.push(`Missing context: ${missingContext.join(', ')}.`);\n\nconst agentRequest = {\n  request: {\n    id: request.id || `${metadata.correlationId}-request`,\n    text: String(request.text || ''),\n    channel: request.channel || 'unknown',\n    userId: String(request.userId || 'savas'),\n    conversationId: String(request.conversationId || request.sessionId || metadata.correlationId),\n    receivedAt: request.receivedAt || new Date().toISOString()\n  },\n  context,\n  metadata: {\n    ...metadata,\n    selectedRoute: route,\n    selectedAgent: agent,\n    targetWorkflow: workflowName,\n    actionMode: decision.actionMode || 'analyze_and_respond',\n    decisionConfidence: Number(decision.confidence ?? 0),\n    requiresApproval: Boolean(decision.requiresApproval),\n    requiresLLM\n  }\n};\n\nconst executionStatus = status === 'available'\n  ? 'ready_for_workflow_connection'\n  : 'agent_not_implemented';\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      selectedAgent: agent,\n      selectedRoute: route,\n      targetWorkflow: workflowName,\n      category,\n      requiresLLM,\n      executionStatus,\n      agentRequest\n    },\n    memoryUpdates: [],\n    approvalRequests: decision.requiresApproval ? [{\n      type: route,\n      status: 'proposed',\n      summary: `Approval may be required for route: ${route}`,\n      payload: { route, targetWorkflow: workflowName }\n    }] : [],\n    logs: [{\n      timestamp: new Date().toISOString(),\n      workflow: 'Concierge OS - Agent Orchestrator',\n      level: warnings.length ? 'warning' : 'info',\n      correlationId: metadata.correlationId,\n      message: `Prepared dispatch for ${agent}.`,\n      details: { route, targetWorkflow: workflowName, executionStatus, warnings }\n    }],\n    nextAction: {\n      type: executionStatus === 'ready_for_workflow_connection'\n        ? 'call_agent_workflow'\n        : 'implement_or_connect_agent',\n      targetWorkflow: workflowName\n    },\n    error: null\n  }\n}];"
+      },
+      "id": "78948b71-0cfe-4564-ae81-e738a1bfc5fe",
+      "name": "Resolve Agent Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const envelope = $json || {};\nif (!envelope.success) return [{json: envelope}];\n\nconst result = envelope.result || {};\n\nif (result.executionStatus === 'agent_not_implemented') {\n  result.agentResponse = {\n    success: true,\n    result: {\n      agent: result.selectedAgent,\n      summary: `The route '${result.selectedRoute}' was selected correctly, but '${result.targetWorkflow}' is not implemented yet.`,\n      recommendations: []\n    },\n    memoryUpdates: [],\n    approvalRequests: envelope.approvalRequests || [],\n    logs: [],\n    nextAction: {\n      type: 'implement_agent',\n      targetWorkflow: result.targetWorkflow\n    },\n    error: null\n  };\n}\n\nreturn [{json: {...envelope, result}}];"
+      },
+      "id": "d0573bad-eb0a-4ade-b200-5449436a470b",
+      "name": "Return Standard Agent Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Agent Orchestrator\n\nValidates Decision Engine output, resolves the target specialist workflow, builds the standard agent request, detects missing context, and returns a safe placeholder until the selected agent exists.\n\nNo AI credits are used.\n\nManual test route: `social_discovery`.",
+        "height": 340,
+        "width": 470
+      },
+      "id": "a36f56a8-eb6e-4fb9-b351-97d73e292850",
+      "name": "AGENT ORCHESTRATOR NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        -520
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Agent Orchestrator Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Main Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Normalize Agent Orchestrator Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Agent Orchestrator Input": {
+      "main": [
+        [
+          {
+            "node": "Resolve Agent Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Agent Route": {
+      "main": [
+        [
+          {
+            "node": "Return Standard Agent Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "9302f109-7bc4-4424-bb8e-fea62d7eed9d",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
