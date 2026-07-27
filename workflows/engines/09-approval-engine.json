@@ -1,0 +1,145 @@
+{
+  "name": "Concierge OS - Approval Engine",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "dd2ac6e5-917c-439a-94d2-e987dc6ffa0b",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -780,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "context",
+              "type": "object"
+            },
+            {
+              "name": "actions",
+              "type": "array"
+            },
+            {
+              "name": "actionPlannerOutput",
+              "type": "object"
+            },
+            {
+              "name": "userResponse",
+              "type": "object"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "f98d621b-0261-4f0c-af47-c2267b330e5a",
+      "name": "Called by Action Planner",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -780,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleActions = [\n  {\n    actionId: 'social-1-show-1',\n    recommendationId: 'social-1',\n    recommendationTitle: 'International Social Mixer',\n    type: 'show_recommendation',\n    title: 'Show recommendation: International Social Mixer',\n    description: 'Present the recommendation to the user.',\n    payload: {},\n    channel: 'chatgpt',\n    scheduledFor: null,\n    priority: 'high',\n    riskLevel: 'low',\n    approvalRequired: false,\n    autoExecutable: true,\n    status: 'planned',\n    createdAt: new Date().toISOString()\n  },\n  {\n    actionId: 'social-1-calendar-2',\n    recommendationId: 'social-1',\n    recommendationTitle: 'International Social Mixer',\n    type: 'calendar_create',\n    title: 'Add International Social Mixer to calendar',\n    description: 'Prepare a Google Calendar event for user approval.',\n    payload: {\n      title: 'International Social Mixer',\n      start: '2026-08-01T20:00:00+04:00',\n      end: '2026-08-01T23:00:00+04:00',\n      location: 'Dubai Marina'\n    },\n    channel: null,\n    scheduledFor: null,\n    priority: 'high',\n    riskLevel: 'medium',\n    approvalRequired: true,\n    autoExecutable: false,\n    status: 'planned',\n    createdAt: new Date().toISOString()\n  },\n  {\n    actionId: 'social-1-reminder-3',\n    recommendationId: 'social-1',\n    recommendationTitle: 'International Social Mixer',\n    type: 'personal_reminder',\n    title: 'Reminder for International Social Mixer',\n    description: 'Prepare a personal reminder.',\n    payload: {\n      eventTitle: 'International Social Mixer',\n      reminderMinutesBefore: 60\n    },\n    channel: 'telegram',\n    scheduledFor: '2026-08-01T20:00:00+04:00',\n    priority: 'normal',\n    riskLevel: 'low',\n    approvalRequired: false,\n    autoExecutable: true,\n    status: 'planned',\n    createdAt: new Date().toISOString()\n  },\n  {\n    actionId: 'travel-1-purchase-4',\n    recommendationId: 'travel-1',\n    recommendationTitle: 'Weekend Trip',\n    type: 'purchase_execute',\n    title: 'Purchase trip booking',\n    description: 'Attempt to purchase a booking.',\n    payload: {\n      amount: 1200,\n      currency: 'AED'\n    },\n    channel: null,\n    scheduledFor: null,\n    priority: 'high',\n    riskLevel: 'high',\n    approvalRequired: true,\n    autoExecutable: false,\n    status: 'planned',\n    createdAt: new Date().toISOString()\n  }\n];\n\nlet actions = [];\n\nif (Array.isArray(input.actions)) {\n  actions = input.actions;\n} else if (Array.isArray(input.result?.actions)) {\n  actions = input.result.actions;\n} else if (Array.isArray(input.actionPlannerOutput?.result?.actions)) {\n  actions = input.actionPlannerOutput.result.actions;\n} else {\n  actions = sampleActions;\n}\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu akşam ne yapayım?',\n      channel: 'manual_test',\n      userId: 'savas',\n      conversationId: 'manual-test'\n    },\n    context: input.context || {\n      timezone: 'Asia/Dubai',\n      userContext: {\n        identity: { name: 'Savaş', language: 'Turkish' }\n      }\n    },\n    actions,\n    userResponse: input.userResponse || null,\n    metadata: input.metadata || {\n      correlationId: `approval-${Date.now()}`,\n      testMode: true\n    }\n  }\n}];\n"
+      },
+      "id": "26309029-fd05-4fa3-93b3-8d9df5089d2d",
+      "name": "Normalize Approval Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nconst actions = Array.isArray(input.actions) ? input.actions : [];\nconst userResponse = input.userResponse || null;\nconst metadata = input.metadata || {};\n\nconst approvalRequiredTypes = new Set([\n  'calendar_create',\n  'calendar_update',\n  'calendar_delete',\n  'send_external_message',\n  'send_email',\n  'reservation_prepare',\n  'reservation_execute',\n  'purchase_prepare',\n  'purchase_execute',\n  'share_personal_data'\n]);\n\nconst blockedTypes = new Set([\n  'purchase_execute',\n  'reservation_execute'\n]);\n\nconst autoApprovedTypes = new Set([\n  'show_recommendation',\n  'personal_reminder',\n  'preparation_checklist',\n  'fitness_preparation',\n  'travel_plan',\n  'feedback_request',\n  'memory_update',\n  'format_notification'\n]);\n\nconst createToken = actionId =>\n  `apr_${Buffer.from(`${actionId}:${Date.now()}`)\n    .toString('base64')\n    .replace(/=/g, '')\n    .replace(/\\+/g, '-')\n    .replace(/\\//g, '_')\n    .slice(0, 32)}`;\n\nconst normalizeDecision = value => {\n  const normalized = String(value || '')\n    .trim()\n    .toLowerCase();\n\n  if (['approve', 'approved', 'yes', 'evet', 'accept', 'accepted'].includes(normalized)) {\n    return 'approved';\n  }\n\n  if (['reject', 'rejected', 'no', 'hayir', 'hayır', 'decline', 'declined'].includes(normalized)) {\n    return 'rejected';\n  }\n\n  if (['alternative', 'alternatives', 'show alternatives', 'alternatif'].includes(normalized)) {\n    return 'alternative_requested';\n  }\n\n  return null;\n};\n\nconst responseDecision = normalizeDecision(\n  userResponse?.decision ||\n  userResponse?.text ||\n  userResponse?.value\n);\n\nconst responseActionId =\n  userResponse?.actionId ||\n  userResponse?.approvalId ||\n  null;\n\nconst evaluatedActions = [];\nconst pendingApprovals = [];\nconst autoApprovedActions = [];\nconst blockedActions = [];\nconst rejectedActions = [];\nconst logs = [];\n\nfor (const action of actions) {\n  if (!action?.actionId || !action?.type) {\n    logs.push({\n      level: 'warning',\n      message: 'Skipped malformed action.',\n      details: { action }\n    });\n    continue;\n  }\n\n  const type = String(action.type);\n  const riskLevel =\n    action.riskLevel ||\n    (\n      blockedTypes.has(type)\n        ? 'high'\n        : approvalRequiredTypes.has(type)\n          ? 'medium'\n          : 'low'\n    );\n\n  const approvalRequired =\n    Boolean(action.approvalRequired) ||\n    approvalRequiredTypes.has(type);\n\n  let status = 'planned';\n  let reason = '';\n  let approvalToken = null;\n\n  const userRespondedToThisAction =\n    responseDecision &&\n    responseActionId &&\n    responseActionId === action.actionId;\n\n  if (blockedTypes.has(type)) {\n    status = 'blocked';\n    reason =\n      'Execution of purchases or reservations is not supported. The system may prepare options but cannot complete the transaction.';\n    blockedActions.push({\n      ...action,\n      status,\n      reason,\n      riskLevel\n    });\n  } else if (userRespondedToThisAction) {\n    if (responseDecision === 'approved') {\n      status = 'approved';\n      reason = 'Explicitly approved by the user.';\n      autoApprovedActions.push({\n        ...action,\n        status,\n        reason,\n        riskLevel,\n        approvedAt: new Date().toISOString()\n      });\n    } else if (responseDecision === 'rejected') {\n      status = 'rejected';\n      reason = 'Explicitly rejected by the user.';\n      rejectedActions.push({\n        ...action,\n        status,\n        reason,\n        riskLevel,\n        rejectedAt: new Date().toISOString()\n      });\n    } else if (responseDecision === 'alternative_requested') {\n      status = 'alternative_requested';\n      reason = 'The user requested an alternative.';\n      rejectedActions.push({\n        ...action,\n        status,\n        reason,\n        riskLevel\n      });\n    }\n  } else if (approvalRequired) {\n    status = 'pending_approval';\n    reason = 'Explicit user approval is required before this action can proceed.';\n    approvalToken = createToken(action.actionId);\n\n    pendingApprovals.push({\n      approvalId: approvalToken,\n      actionId: action.actionId,\n      recommendationId: action.recommendationId || null,\n      type,\n      status,\n      riskLevel,\n      summary: action.title,\n      description: action.description || '',\n      payload: action.payload || {},\n      channel: action.channel || 'telegram',\n      createdAt: new Date().toISOString(),\n      expiresAt: new Date(\n        Date.now() + 24 * 60 * 60 * 1000\n      ).toISOString(),\n      allowedResponses: [\n        'approve',\n        'reject',\n        'alternative'\n      ]\n    });\n  } else if (\n    action.autoExecutable === true ||\n    autoApprovedTypes.has(type)\n  ) {\n    status = 'approved';\n    reason = 'Low-risk internal action approved automatically.';\n    autoApprovedActions.push({\n      ...action,\n      status,\n      reason,\n      riskLevel,\n      approvedAt: new Date().toISOString()\n    });\n  } else {\n    status = 'pending_review';\n    reason = 'Action does not match a known rule and requires manual review.';\n    approvalToken = createToken(action.actionId);\n\n    pendingApprovals.push({\n      approvalId: approvalToken,\n      actionId: action.actionId,\n      recommendationId: action.recommendationId || null,\n      type,\n      status: 'pending_approval',\n      riskLevel: 'medium',\n      summary: action.title,\n      description: action.description || '',\n      payload: action.payload || {},\n      channel: action.channel || 'telegram',\n      createdAt: new Date().toISOString(),\n      expiresAt: new Date(\n        Date.now() + 24 * 60 * 60 * 1000\n      ).toISOString(),\n      allowedResponses: [\n        'approve',\n        'reject',\n        'alternative'\n      ]\n    });\n  }\n\n  evaluatedActions.push({\n    ...action,\n    riskLevel,\n    approvalRequired,\n    approvalStatus: status,\n    approvalReason: reason,\n    approvalToken\n  });\n}\n\nconst notificationItems = pendingApprovals.map(item => ({\n  notificationType: 'approval_request',\n  preferredChannel: 'telegram',\n  fallbackChannel: 'whatsapp',\n  title: item.summary,\n  message:\n    `${item.summary}\\n\\nRisk: ${item.riskLevel}\\n\\nApprove this action?`,\n  buttons: [\n    {\n      label: 'Approve',\n      value: `approve:${item.actionId}`\n    },\n    {\n      label: 'Reject',\n      value: `reject:${item.actionId}`\n    },\n    {\n      label: 'Alternative',\n      value: `alternative:${item.actionId}`\n    }\n  ],\n  approvalId: item.approvalId,\n  actionId: item.actionId\n}));\n\nconst summary = {\n  inputActionCount: actions.length,\n  evaluatedActionCount: evaluatedActions.length,\n  pendingApprovalCount: pendingApprovals.length,\n  autoApprovedCount: autoApprovedActions.length,\n  blockedCount: blockedActions.length,\n  rejectedCount: rejectedActions.length\n};\n\nlet nextAction;\n\nif (pendingApprovals.length > 0) {\n  nextAction = {\n    type: 'send_approval_notifications',\n    targetWorkflow: 'Concierge OS - Notification Engine'\n  };\n} else if (autoApprovedActions.length > 0) {\n  nextAction = {\n    type: 'execute_approved_actions',\n    targetWorkflow: 'Concierge OS - Action Executor'\n  };\n} else {\n  nextAction = {\n    type: 'stop',\n    targetWorkflow: null\n  };\n}\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      summary,\n      evaluatedActions,\n      pendingApprovals,\n      autoApprovedActions,\n      blockedActions,\n      rejectedActions,\n      notificationItems\n    },\n    memoryUpdates: pendingApprovals.map(item => ({\n      type: 'pending_approval',\n      operation: 'append',\n      payload: item\n    })),\n    approvalRequests: pendingApprovals,\n    logs: [\n      {\n        timestamp: new Date().toISOString(),\n        workflow: 'Concierge OS - Approval Engine',\n        level:\n          blockedActions.length || rejectedActions.length\n            ? 'warning'\n            : 'info',\n        correlationId:\n          metadata.correlationId || '',\n        message:\n          `Evaluated ${evaluatedActions.length} actions.`,\n        details: summary\n      },\n      ...logs.map(log => ({\n        timestamp: new Date().toISOString(),\n        workflow: 'Concierge OS - Approval Engine',\n        correlationId:\n          metadata.correlationId || '',\n        ...log\n      }))\n    ],\n    nextAction,\n    error: null\n  }\n}];\n"
+      },
+      "id": "d14ca642-935c-4503-8dff-4e2d26c10411",
+      "name": "Evaluate Approval Rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Approval Engine\n\nResponsibilities:\n\n1. Evaluate each planned action.\n2. Auto-approve low-risk internal actions.\n3. Require explicit approval for external actions.\n4. Block unsupported purchase and reservation execution.\n5. Create approval tokens and pending approval records.\n6. Generate Telegram-first approval notification payloads.\n7. Process approve, reject, and alternative responses.\n\nNo AI credits are used.\n\n### Approval rules\n\nAuto-approved:\n- show recommendation\n- personal reminder\n- preparation checklist\n- feedback request\n- memory update\n\nApproval required:\n- calendar create/update/delete\n- external message or email\n- reservation preparation\n- purchase preparation\n- personal data sharing\n\nBlocked:\n- purchase execution\n- reservation execution\n",
+        "height": 520,
+        "width": 500
+      },
+      "id": "d4c6ecd3-1b82-4c39-87e7-39d45a740234",
+      "name": "APPROVAL ENGINE NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -780,
+        -660
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Approval Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Action Planner": {
+      "main": [
+        [
+          {
+            "node": "Normalize Approval Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Approval Input": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Approval Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "8cc39953-1fa5-4ce4-8af2-e347ce55cd40",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
