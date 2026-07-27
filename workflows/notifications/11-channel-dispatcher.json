@@ -1,0 +1,133 @@
+{
+  "name": "Concierge OS - Channel Dispatcher",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "9a94dac3-563c-4d3a-8136-8092890a1c49",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "notificationEngineOutput",
+              "type": "object"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "e10cab5d-e31c-4261-b204-f2556fcafe43",
+      "name": "Called by Notification Engine",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -800,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleNotificationOutput = {\n  success: true,\n  result: {\n    channelPayloads: {\n      chatgpt: [\n        {\n          notificationId: 'ntf_chatgpt_1',\n          title: 'International Social Mixer',\n          message: 'Must Go · 88/100\\nStrong social fit and easy to attend alone.',\n          type: 'recommendation'\n        }\n      ],\n      telegram: [\n        {\n          notificationId: 'ntf_telegram_1',\n          chatId: '1938141471',\n          text: '*Add International Social Mixer to calendar*\\n\\nApprove this action?',\n          parseMode: 'Markdown',\n          buttons: [\n            { label: 'Approve', value: 'approve:social-1-calendar-2' },\n            { label: 'Reject', value: 'reject:social-1-calendar-2' },\n            { label: 'Alternative', value: 'alternative:social-1-calendar-2' }\n          ],\n          scheduledFor: null,\n          type: 'approval_request',\n          approvalId: 'apr_sample_123',\n          relatedActionId: 'social-1-calendar-2'\n        }\n      ],\n      whatsapp: [\n        {\n          notificationId: 'ntf_whatsapp_1',\n          to: '+971500000000',\n          text: 'Boxing starts in 60 minutes.',\n          scheduledFor: null,\n          type: 'reminder',\n          relatedActionId: 'fitness-1-reminder'\n        }\n      ]\n    }\n  }\n};\n\nreturn [{\n  json: {\n    request: input.request || {\n      channel: 'manual_test',\n      userId: 'savas',\n      telegramChatId: '1938141471',\n      whatsappNumber: '+971500000000'\n    },\n    notificationEngineOutput:\n      input.notificationEngineOutput ||\n      (\n        input.result?.channelPayloads\n          ? input\n          : sampleNotificationOutput\n      ),\n    metadata: input.metadata || {\n      correlationId: `dispatcher-${Date.now()}`,\n      testMode: true,\n      dispatchEnabled: false\n    }\n  }\n}];\n"
+      },
+      "id": "0c936f13-8560-4312-bbeb-1252736b19ac",
+      "name": "Normalize Dispatch Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nconst notificationOutput = input.notificationEngineOutput || {};\nconst payloads = notificationOutput.result?.channelPayloads || {};\nconst request = input.request || {};\nconst metadata = input.metadata || {};\n\nconst chatgpt = Array.isArray(payloads.chatgpt) ? payloads.chatgpt : [];\nconst telegram = Array.isArray(payloads.telegram) ? payloads.telegram : [];\nconst whatsapp = Array.isArray(payloads.whatsapp) ? payloads.whatsapp : [];\n\nconst dispatchEnabled = metadata.dispatchEnabled === true;\nconst rejected = [];\nconst dispatchQueue = [];\n\nconst pushQueue = (channel, item, destination, status, reason = '') => {\n  dispatchQueue.push({\n    dispatchId: `dsp_${Date.now()}_${dispatchQueue.length + 1}`,\n    channel,\n    destination,\n    notificationId: item.notificationId || null,\n    type: item.type || 'notification',\n    payload: item,\n    status,\n    reason,\n    createdAt: new Date().toISOString()\n  });\n};\n\nfor (const item of chatgpt) {\n  if (!item?.message) {\n    rejected.push({ channel: 'chatgpt', item, reason: 'missing_message' });\n    continue;\n  }\n\n  pushQueue(\n    'chatgpt',\n    item,\n    request.conversationId || request.userId || 'current_chat',\n    'ready',\n    'Return through the current ChatGPT response channel.'\n  );\n}\n\nfor (const item of telegram) {\n  const chatId = item?.chatId || request.telegramChatId || request.userId;\n\n  if (!item?.text) {\n    rejected.push({ channel: 'telegram', item, reason: 'missing_text' });\n    continue;\n  }\n\n  if (!chatId) {\n    rejected.push({ channel: 'telegram', item, reason: 'missing_chat_id' });\n    continue;\n  }\n\n  pushQueue(\n    'telegram',\n    { ...item, chatId },\n    String(chatId),\n    dispatchEnabled ? 'ready_to_send' : 'preview_only',\n    dispatchEnabled\n      ? 'Telegram connector may send this payload.'\n      : 'Dispatch is disabled during safe testing.'\n  );\n}\n\nfor (const item of whatsapp) {\n  const to = item?.to || request.whatsappNumber;\n\n  if (!item?.text) {\n    rejected.push({ channel: 'whatsapp', item, reason: 'missing_text' });\n    continue;\n  }\n\n  if (!to) {\n    rejected.push({ channel: 'whatsapp', item, reason: 'missing_phone_number' });\n    continue;\n  }\n\n  pushQueue(\n    'whatsapp',\n    { ...item, to },\n    String(to),\n    dispatchEnabled ? 'ready_to_send' : 'preview_only',\n    dispatchEnabled\n      ? 'WhatsApp connector may send this payload.'\n      : 'Dispatch is disabled during safe testing.'\n  );\n}\n\nconst chatgptResponses = dispatchQueue\n  .filter(item => item.channel === 'chatgpt')\n  .map(item => ({\n    dispatchId: item.dispatchId,\n    title: item.payload.title || '',\n    message: item.payload.message,\n    type: item.type\n  }));\n\nconst telegramQueue = dispatchQueue\n  .filter(item => item.channel === 'telegram')\n  .map(item => ({\n    dispatchId: item.dispatchId,\n    chatId: item.destination,\n    text: item.payload.text,\n    parseMode: item.payload.parseMode || 'Markdown',\n    buttons: item.payload.buttons || [],\n    scheduledFor: item.payload.scheduledFor || null,\n    approvalId: item.payload.approvalId || null,\n    relatedActionId: item.payload.relatedActionId || null,\n    status: item.status\n  }));\n\nconst whatsappQueue = dispatchQueue\n  .filter(item => item.channel === 'whatsapp')\n  .map(item => ({\n    dispatchId: item.dispatchId,\n    to: item.destination,\n    text: item.payload.text,\n    scheduledFor: item.payload.scheduledFor || null,\n    relatedActionId: item.payload.relatedActionId || null,\n    status: item.status\n  }));\n\nconst summary = {\n  inputChatGPTCount: chatgpt.length,\n  inputTelegramCount: telegram.length,\n  inputWhatsAppCount: whatsapp.length,\n  queuedCount: dispatchQueue.length,\n  rejectedCount: rejected.length,\n  chatgptReadyCount: chatgptResponses.length,\n  telegramReadyCount: telegramQueue.length,\n  whatsappReadyCount: whatsappQueue.length,\n  dispatchEnabled\n};\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      summary,\n      dispatchQueue,\n      channelDispatch: {\n        chatgptResponses,\n        telegramQueue,\n        whatsappQueue\n      },\n      rejected\n    },\n    memoryUpdates: dispatchQueue.map(item => ({\n      type: 'dispatch_history',\n      operation: 'append',\n      payload: {\n        dispatchId: item.dispatchId,\n        notificationId: item.notificationId,\n        channel: item.channel,\n        destination: item.destination,\n        status: item.status,\n        createdAt: item.createdAt\n      }\n    })),\n    approvalRequests: [],\n    logs: [{\n      timestamp: new Date().toISOString(),\n      workflow: 'Concierge OS - Channel Dispatcher',\n      level: rejected.length ? 'warning' : 'info',\n      correlationId: metadata.correlationId || '',\n      message: `Prepared ${dispatchQueue.length} channel dispatch items.`,\n      details: summary\n    }],\n    nextAction: {\n      type: dispatchEnabled ? 'send_via_channel_connectors' : 'review_dispatch_preview',\n      targetWorkflow: dispatchEnabled\n        ? 'Concierge OS - Channel Connectors'\n        : null\n    },\n    error: null\n  }\n}];\n"
+      },
+      "id": "a7da078a-2f1d-47cd-ade1-08911b6a0226",
+      "name": "Build Dispatch Queues",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Channel Dispatcher\n\nThis safe v1 workflow:\n\n1. Receives Notification Engine channel payloads.\n2. Validates destinations and message content.\n3. Builds ChatGPT, Telegram and WhatsApp dispatch queues.\n4. Does not send external messages during manual testing.\n5. Creates dispatch-history memory updates.\n\n### Safe mode\n\n`metadata.dispatchEnabled = false`\n\nThe workflow only creates previews.\n\n### Future connector mode\n\nSet `dispatchEnabled = true` only after Telegram and WhatsApp connector workflows are configured and tested.\n\nNo AI credits are used.\n",
+        "height": 410,
+        "width": 480
+      },
+      "id": "11a3d0d8-077d-437b-8174-9afd73926564",
+      "name": "CHANNEL DISPATCHER NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -570
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Dispatch Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Notification Engine": {
+      "main": [
+        [
+          {
+            "node": "Normalize Dispatch Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Dispatch Input": {
+      "main": [
+        [
+          {
+            "node": "Build Dispatch Queues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "d9566e9d-a158-4710-9499-04200144f8f1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
