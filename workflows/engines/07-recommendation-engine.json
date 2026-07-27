@@ -1,0 +1,141 @@
+{
+  "name": "Concierge OS - Recommendation Engine",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "798b6a76-51ab-4bc7-9514-aaa4518a85ca",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "context",
+              "type": "object"
+            },
+            {
+              "name": "recommendations",
+              "type": "array"
+            },
+            {
+              "name": "agentResponses",
+              "type": "array"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "39fa515a-9dfb-4ee9-8996-700c6de90dce",
+      "name": "Called by Agent Orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -760,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleRecommendations = [\n  {\n    id: 'social-1',\n    title: 'International Social Mixer',\n    category: 'social',\n    source: 'manual_test',\n    location: 'Dubai Marina',\n    estimatedCost: 120,\n    currency: 'AED',\n    confidence: 0.90,\n    reason: 'Strong social fit and easy to attend alone.',\n    rawScores: {\n      calendarCompatibility: 9,\n      travelConvenience: 7,\n      socialQuality: 10,\n      audienceFit: 9,\n      fitnessValue: 1,\n      growthValue: 6,\n      networkingValue: 9,\n      organicConnectionPotential: 9,\n      funNovelty: 8,\n      valueForMoney: 7,\n      soloFriendly: 9\n    }\n  },\n  {\n    id: 'fitness-1',\n    title: 'Boxing Class',\n    category: 'fitness',\n    source: 'manual_test',\n    location: 'Palm Jumeirah',\n    estimatedCost: 0,\n    currency: 'AED',\n    confidence: 0.95,\n    reason: 'Supports weekly fitness consistency.',\n    rawScores: {\n      calendarCompatibility: 8,\n      travelConvenience: 10,\n      socialQuality: 5,\n      audienceFit: 7,\n      fitnessValue: 10,\n      growthValue: 8,\n      networkingValue: 3,\n      organicConnectionPotential: 3,\n      funNovelty: 6,\n      valueForMoney: 10,\n      soloFriendly: 10\n    }\n  },\n  {\n    id: 'social-1-duplicate',\n    title: 'International Social Mixer',\n    category: 'social',\n    source: 'manual_test',\n    location: 'Dubai Marina',\n    estimatedCost: 120,\n    currency: 'AED',\n    confidence: 0.70,\n    reason: 'Duplicate test item.',\n    rawScores: {\n      calendarCompatibility: 8,\n      travelConvenience: 7,\n      socialQuality: 9,\n      audienceFit: 8,\n      fitnessValue: 1,\n      growthValue: 5,\n      networkingValue: 8,\n      organicConnectionPotential: 8,\n      funNovelty: 7,\n      valueForMoney: 6,\n      soloFriendly: 8\n    }\n  }\n];\n\nlet recommendations = [];\n\nif (Array.isArray(input.recommendations)) {\n  recommendations = input.recommendations;\n} else if (Array.isArray(input.result?.recommendations)) {\n  recommendations = input.result.recommendations;\n} else if (Array.isArray(input.agentResponses)) {\n  recommendations = input.agentResponses.flatMap(response =>\n    Array.isArray(response?.result?.recommendations)\n      ? response.result.recommendations\n      : Array.isArray(response?.recommendations)\n        ? response.recommendations\n        : []\n  );\n} else {\n  recommendations = sampleRecommendations;\n}\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu akşam ne yapayım?',\n      channel: 'manual_test'\n    },\n    context: input.context || {\n      derivedContext: {\n        calendarLoad: 'low',\n        needsMoreSocial: true,\n        needsMoreFitness: true\n      }\n    },\n    recommendations,\n    metadata: input.metadata || {\n      correlationId: `recommendation-${Date.now()}`,\n      testMode: true\n    }\n  }\n}];\n"
+      },
+      "id": "771e3b05-bbc8-4a56-b2cb-2817c460d910",
+      "name": "Normalize Recommendation Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -430,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nconst recommendations = Array.isArray(input.recommendations)\n  ? input.recommendations\n  : [];\n\nconst context = input.context || {};\nconst derived =\n  context.derivedContext ||\n  context.derived ||\n  {};\n\nconst clamp = (value, min = 0, max = 10) =>\n  Math.max(min, Math.min(max, Number(value ?? 0)));\n\nconst weights = {\n  calendarCompatibility: 15,\n  travelConvenience: 10,\n  socialQuality: 15,\n  audienceFit: 10,\n  fitnessValue: 8,\n  growthValue: 8,\n  networkingValue: 8,\n  organicConnectionPotential: 8,\n  funNovelty: 7,\n  valueForMoney: 6,\n  soloFriendly: 5\n};\n\nconst logs = [];\nconst rejected = [];\nconst normalized = [];\n\nfor (let index = 0; index < recommendations.length; index++) {\n  const source = recommendations[index] || {};\n\n  const title = String(source.title || '').trim();\n\n  if (!title) {\n    rejected.push({\n      index,\n      reason: 'missing_title',\n      item: source\n    });\n    continue;\n  }\n\n  const rawScores = source.rawScores || source.scores || {};\n\n  let score = 0;\n\n  for (const [criterion, weight] of Object.entries(weights)) {\n    score += clamp(rawScores[criterion]) * (weight / 10);\n  }\n\n  let contextAdjustment = 0;\n  const contextReasons = [];\n\n  if (\n    derived.needsMoreSocial === true &&\n    ['social', 'networking', 'dating'].includes(\n      String(source.category || '').toLowerCase()\n    )\n  ) {\n    contextAdjustment += 6;\n    contextReasons.push('Weekly social target is below goal.');\n  }\n\n  if (\n    derived.needsMoreFitness === true &&\n    ['fitness', 'sports', 'wellness'].includes(\n      String(source.category || '').toLowerCase()\n    )\n  ) {\n    contextAdjustment += 6;\n    contextReasons.push('Weekly fitness target is below goal.');\n  }\n\n  if (\n    derived.calendarLoad === 'high' &&\n    !['recovery', 'wellness'].includes(\n      String(source.category || '').toLowerCase()\n    )\n  ) {\n    contextAdjustment -= 8;\n    contextReasons.push('Calendar load is high.');\n  }\n\n  if (\n    derived.calendarLoad === 'high' &&\n    ['recovery', 'wellness'].includes(\n      String(source.category || '').toLowerCase()\n    )\n  ) {\n    contextAdjustment += 8;\n    contextReasons.push('Recovery is prioritized because calendar load is high.');\n  }\n\n  if (\n    derived.isMondayOrTuesday === true &&\n    derived.commuteConstraint?.active === true &&\n    source.start\n  ) {\n    const eventStart = new Date(source.start);\n\n    if (!Number.isNaN(eventStart.getTime())) {\n      const formatter = new Intl.DateTimeFormat('en-GB', {\n        timeZone: 'Asia/Dubai',\n        hour: '2-digit',\n        minute: '2-digit',\n        hour12: false\n      });\n\n      const [hour, minute] = formatter\n        .format(eventStart)\n        .split(':')\n        .map(Number);\n\n      const startMinutes = hour * 60 + minute;\n      const earliest = 19 * 60 + 30;\n\n      if (startMinutes < earliest) {\n        contextAdjustment -= 20;\n        contextReasons.push(\n          'Event starts too early for the Abu Dhabi to Dubai commute.'\n        );\n      }\n    }\n  }\n\n  const penalty = Math.max(\n    0,\n    Number(source.penalty || source.rawScores?.penalty || 0)\n  );\n\n  const confidence = Math.max(\n    0,\n    Math.min(1, Number(source.confidence ?? 0.5))\n  );\n\n  const confidenceAdjustment =\n    confidence >= 0.85 ? 3 :\n    confidence < 0.50 ? -8 :\n    0;\n\n  const finalScore = Math.max(\n    0,\n    Math.min(\n      100,\n      Math.round(\n        score +\n        contextAdjustment +\n        confidenceAdjustment -\n        penalty\n      )\n    )\n  );\n\n  const classification =\n    finalScore >= 85 ? 'Must Go' :\n    finalScore >= 70 ? 'Strong Match' :\n    finalScore >= 55 ? 'Good Alternative' :\n    'Do Not Recommend';\n\n  normalized.push({\n    id:\n      source.id ||\n      `recommendation-${Date.now()}-${index}`,\n    title,\n    category:\n      String(source.category || 'general'),\n    source:\n      String(source.source || 'unknown'),\n    sourceUrl:\n      source.sourceUrl || null,\n    start:\n      source.start || null,\n    end:\n      source.end || null,\n    location:\n      source.location || null,\n    estimatedCost:\n      source.estimatedCost ?? null,\n    currency:\n      source.currency || 'AED',\n    confidence,\n    reason:\n      source.reason || '',\n    rawScores,\n    score: finalScore,\n    classification,\n    contextAdjustment,\n    contextReasons,\n    requiresApproval:\n      Boolean(source.requiresApproval),\n    approvalType:\n      source.approvalType || null,\n    metadata:\n      source.metadata || {}\n  });\n}\n\nconst normalizeKey = item =>\n  [\n    item.title.toLocaleLowerCase('tr-TR').trim(),\n    String(item.location || '').toLocaleLowerCase('tr-TR').trim(),\n    String(item.start || '').slice(0, 16)\n  ].join('|');\n\nconst deduplicatedMap = new Map();\n\nfor (const item of normalized) {\n  const key = normalizeKey(item);\n  const existing = deduplicatedMap.get(key);\n\n  if (!existing || item.score > existing.score) {\n    if (existing) {\n      logs.push({\n        level: 'info',\n        message: 'Duplicate recommendation replaced by higher-scoring item.',\n        details: {\n          title: item.title,\n          retainedScore: item.score,\n          removedScore: existing.score\n        }\n      });\n    }\n\n    deduplicatedMap.set(key, item);\n  } else {\n    logs.push({\n      level: 'info',\n      message: 'Duplicate recommendation removed.',\n      details: {\n        title: item.title,\n        retainedScore: existing.score,\n        removedScore: item.score\n      }\n    });\n  }\n}\n\nconst ranked = [...deduplicatedMap.values()]\n  .sort((a, b) => {\n    if (b.score !== a.score) return b.score - a.score;\n    return b.confidence - a.confidence;\n  })\n  .map((item, index) => ({\n    rank: index + 1,\n    ...item\n  }));\n\nconst recommended = ranked.filter(item => item.score >= 55);\nconst topRecommendations = recommended.slice(0, 3);\n\nconst approvalRequests = topRecommendations\n  .filter(item => item.requiresApproval)\n  .map(item => ({\n    type:\n      item.approvalType ||\n      'recommendation_action',\n    status: 'proposed',\n    recommendationId: item.id,\n    summary: `Approval required for: ${item.title}`,\n    payload: item\n  }));\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      recommendationCount: recommendations.length,\n      validRecommendationCount: normalized.length,\n      deduplicatedCount: ranked.length,\n      recommendedCount: recommended.length,\n      topRecommendations,\n      allRankedRecommendations: ranked,\n      rejectedRecommendations: rejected\n    },\n    memoryUpdates: topRecommendations.map(item => ({\n      type: 'recommendation_history',\n      operation: 'append',\n      payload: {\n        id: item.id,\n        title: item.title,\n        category: item.category,\n        score: item.score,\n        classification: item.classification,\n        status: 'proposed',\n        createdAt: new Date().toISOString()\n      }\n    })),\n    approvalRequests,\n    logs: [\n      {\n        timestamp: new Date().toISOString(),\n        workflow: 'Concierge OS - Recommendation Engine',\n        level: rejected.length ? 'warning' : 'info',\n        correlationId:\n          input.metadata?.correlationId || '',\n        message:\n          `Ranked ${ranked.length} unique recommendations.`,\n        details: {\n          inputCount: recommendations.length,\n          rejectedCount: rejected.length,\n          duplicateLogCount: logs.length\n        }\n      },\n      ...logs.map(log => ({\n        timestamp: new Date().toISOString(),\n        workflow: 'Concierge OS - Recommendation Engine',\n        correlationId:\n          input.metadata?.correlationId || '',\n        ...log\n      }))\n    ],\n    nextAction: {\n      type:\n        approvalRequests.length\n          ? 'evaluate_approval'\n          : 'format_notification',\n      targetWorkflow:\n        approvalRequests.length\n          ? 'Concierge OS - Approval Engine'\n          : 'Concierge OS - Notification Engine'\n    },\n    error: null\n  }\n}];\n"
+      },
+      "id": "8d142389-5192-4449-8d4f-b36601c03e47",
+      "name": "Score Deduplicate and Rank",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Recommendation Engine\n\nResponsibilities:\n\n1. Accept recommendations from one or more agents.\n2. Validate required fields.\n3. Calculate a 0-100 score.\n4. Apply Context Builder adjustments.\n5. Deduplicate repeated opportunities.\n6. Rank recommendations.\n7. Return the top three.\n8. Prepare memory updates.\n9. Forward approval-required items to Approval Engine.\n\nNo AI credits are used.\n\n### Manual test\n\nThe built-in test includes:\n\n- International Social Mixer\n- Boxing Class\n- one duplicate social event\n\nExpected output:\n\n- 2 unique ranked recommendations\n- Boxing and Social Mixer ranked by context-aware score\n- duplicate removed\n",
+        "height": 430,
+        "width": 470
+      },
+      "id": "7fc29e95-accc-4893-a05e-e00ccf7c6905",
+      "name": "RECOMMENDATION ENGINE NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -580
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Recommendation Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Agent Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Normalize Recommendation Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Recommendation Input": {
+      "main": [
+        [
+          {
+            "node": "Score Deduplicate and Rank",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "a12acfa8-e45e-4a39-b946-5117c7ffe98e",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
