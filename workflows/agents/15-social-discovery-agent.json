@@ -1,1 +1,150 @@
 
+{
+  "name": "Concierge OS - Social Discovery Agent",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "d220eb76-89e1-4364-a486-e6e2f13443d6",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "request",
+              "type": "object"
+            },
+            {
+              "name": "context",
+              "type": "object"
+            },
+            {
+              "name": "events",
+              "type": "array"
+            },
+            {
+              "name": "sourceEvents",
+              "type": "array"
+            },
+            {
+              "name": "connectorOutputs",
+              "type": "array"
+            },
+            {
+              "name": "forwardedItems",
+              "type": "array"
+            },
+            {
+              "name": "metadata",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "5aa24bd9-9cca-4d64-a6cb-fc154b8ce605",
+      "name": "Called by Agent Orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -800,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\n\nconst sampleEvents = [\n  {\n    source: 'InterNations',\n    title: 'Dubai International Social Mixer',\n    start: '2026-08-07T19:30:00+04:00',\n    end: '2026-08-07T22:30:00+04:00',\n    location: 'Dubai Marina',\n    sourceUrl: 'https://example.com/internations-event',\n    estimatedCost: 120,\n    currency: 'AED',\n    category: 'social',\n    description: 'International crowd, social mixer, solo-friendly.'\n  },\n  {\n    source: 'Meetup',\n    title: 'Dubai Expats Rooftop Social',\n    start: '2026-08-08T20:00:00+04:00',\n    end: '2026-08-08T23:00:00+04:00',\n    location: 'Palm Jumeirah',\n    sourceUrl: 'https://example.com/meetup-event',\n    estimatedCost: 80,\n    currency: 'AED',\n    category: 'social',\n    description: 'Expats social event with rooftop setting.'\n  },\n  {\n    source: 'TimeOut Dubai',\n    title: 'Rooftop Social Night',\n    start: '2026-08-08T20:00:00+04:00',\n    end: '2026-08-08T23:00:00+04:00',\n    location: 'Palm Jumeirah',\n    sourceUrl: 'https://example.com/timeout-event',\n    estimatedCost: 100,\n    currency: 'AED',\n    category: 'nightlife',\n    description: 'Rooftop social event.'\n  },\n  {\n    source: 'Privilee',\n    title: 'Beach Club Social Afternoon',\n    start: '2026-08-09T15:00:00+04:00',\n    end: '2026-08-09T19:00:00+04:00',\n    location: 'Palm Jumeirah',\n    sourceUrl: 'https://example.com/privilee-event',\n    estimatedCost: 0,\n    currency: 'AED',\n    category: 'social',\n    description: 'Member access, beach club, relaxed social environment.'\n  }\n];\n\nlet sourceEvents = [];\n\nif (Array.isArray(input.events)) {\n  sourceEvents = input.events;\n} else if (Array.isArray(input.sourceEvents)) {\n  sourceEvents = input.sourceEvents;\n} else if (Array.isArray(input.connectorOutputs)) {\n  sourceEvents = input.connectorOutputs.flatMap(connector => {\n    if (Array.isArray(connector?.events)) return connector.events;\n    if (Array.isArray(connector?.result?.events)) return connector.result.events;\n    return [];\n  });\n} else if (Array.isArray(input.forwardedItems)) {\n  sourceEvents = input.forwardedItems;\n} else {\n  sourceEvents = sampleEvents;\n}\n\nreturn [{\n  json: {\n    request: input.request || {\n      text: 'Bu hafta sonu sosyal etkinlik bul',\n      channel: 'manual_test',\n      userId: 'savas'\n    },\n    context: input.context || {\n      timezone: 'Asia/Dubai',\n      userContext: {\n        identity: { name: 'Savaş', language: 'Turkish' },\n        locations: {\n          home: 'Palm Jumeirah, Dubai',\n          work: 'Abu Dhabi'\n        },\n        goals: {\n          social: 'Build a quality international social circle',\n          dating: 'Create genuine dating opportunities'\n        },\n        preferences: {\n          venues: 'Bars, rooftops, lounges, beach clubs, social activities',\n          memberships: 'Privilee, InterNations, Meetup'\n        }\n      },\n      derivedContext: {\n        calendarLoad: 'low',\n        isWeekend: true,\n        needsMoreSocial: true,\n        preferredPlanningWindow: {\n          start: '17:00',\n          end: '23:00'\n        }\n      },\n      userState: {\n        energyLevel: 'high',\n        mood: 'social',\n        budgetAED: 300,\n        maxTravelMinutes: 40\n      }\n    },\n    sourceEvents,\n    metadata: input.metadata || {\n      correlationId: `social-discovery-${Date.now()}`,\n      testMode: true\n    }\n  }\n}];\n"
+      },
+      "id": "cc7e63fa-82ef-420b-9372-2d9aa42b2bb9",
+      "name": "Normalize Social Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nconst events = Array.isArray(input.sourceEvents)\n  ? input.sourceEvents\n  : [];\n\nconst context = input.context || {};\nconst derived =\n  context.derivedContext ||\n  context.derived ||\n  {};\nconst userState = context.userState || {};\nconst metadata = input.metadata || {};\n\nconst sourcePriority = {\n  'InterNations': 10,\n  'Meetup': 9,\n  'Eventbrite': 8,\n  'Dubai Calendar': 8,\n  'Privilee': 8,\n  'TimeOut Dubai': 7,\n  'Google Events': 6,\n  'WhatsApp Forward': 6,\n  'Telegram Forward': 6,\n  'Instagram Link': 6,\n  'Unknown': 4\n};\n\nconst normalizeText = value =>\n  String(value || '')\n    .trim()\n    .toLocaleLowerCase('tr-TR');\n\nconst classifyCategory = event => {\n  const text = normalizeText(\n    `${event.category || ''} ${event.title || ''} ${event.description || ''}`\n  );\n\n  if (\n    text.includes('night') ||\n    text.includes('dj') ||\n    text.includes('party') ||\n    text.includes('rooftop') ||\n    text.includes('club')\n  ) return 'nightlife';\n\n  if (\n    text.includes('singles') ||\n    text.includes('speed dating') ||\n    text.includes('dating')\n  ) return 'dating';\n\n  if (\n    text.includes('network') ||\n    text.includes('mixer') ||\n    text.includes('social') ||\n    text.includes('expat') ||\n    text.includes('community')\n  ) return 'social';\n\n  return event.category || 'social';\n};\n\nconst clamp10 = value =>\n  Math.max(0, Math.min(10, Number(value ?? 0)));\n\nconst eventStart = value => {\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? null : date;\n};\n\nconst preferredStartMinutes = (() => {\n  const start = derived.preferredPlanningWindow?.start || '18:00';\n  const [hour, minute] = start.split(':').map(Number);\n  return hour * 60 + minute;\n})();\n\nconst recommendations = [];\nconst rejected = [];\nconst logs = [];\n\nfor (let index = 0; index < events.length; index++) {\n  const event = events[index] || {};\n\n  const title = String(\n    event.title ||\n    event.name ||\n    event.eventTitle ||\n    ''\n  ).trim();\n\n  if (!title) {\n    rejected.push({\n      index,\n      reason: 'missing_title',\n      event\n    });\n    continue;\n  }\n\n  const start =\n    event.start ||\n    event.startTime ||\n    event.dateTime ||\n    event.date ||\n    null;\n\n  const end =\n    event.end ||\n    event.endTime ||\n    null;\n\n  const source =\n    String(event.source || event.platform || 'Unknown').trim();\n\n  const location =\n    String(\n      event.location ||\n      event.venue ||\n      event.city ||\n      ''\n    ).trim();\n\n  const sourceUrl =\n    event.sourceUrl ||\n    event.url ||\n    event.link ||\n    null;\n\n  const description =\n    String(event.description || event.text || '').trim();\n\n  const category = classifyCategory(event);\n\n  const startDate = start ? eventStart(start) : null;\n\n  if (!startDate) {\n    rejected.push({\n      index,\n      title,\n      reason: 'missing_or_invalid_start',\n      event\n    });\n    continue;\n  }\n\n  const locationText = normalizeText(location);\n\n  const inPreferredRegion =\n    locationText.includes('dubai') ||\n    locationText.includes('palm') ||\n    locationText.includes('marina') ||\n    locationText.includes('jbr') ||\n    locationText.includes('difc') ||\n    locationText.includes('downtown') ||\n    locationText.includes('abu dhabi');\n\n  if (!inPreferredRegion && location) {\n    rejected.push({\n      index,\n      title,\n      reason: 'outside_preferred_region',\n      location\n    });\n    continue;\n  }\n\n  const dubaiTime = new Intl.DateTimeFormat('en-GB', {\n    timeZone: 'Asia/Dubai',\n    hour: '2-digit',\n    minute: '2-digit',\n    hour12: false\n  }).format(startDate);\n\n  const [hour, minute] = dubaiTime.split(':').map(Number);\n  const startMinutes = hour * 60 + minute;\n\n  const sourceBonus =\n    sourcePriority[source] ??\n    sourcePriority.Unknown;\n\n  const socialQuality =\n    category === 'social' ? 9 :\n    category === 'dating' ? 9 :\n    category === 'nightlife' ? 8 :\n    6;\n\n  const audienceFit =\n    source === 'InterNations' ? 10 :\n    source === 'Meetup' ? 9 :\n    source === 'Privilee' ? 8 :\n    source === 'Eventbrite' ? 8 :\n    source === 'Dubai Calendar' ? 8 :\n    7;\n\n  const organicConnectionPotential =\n    category === 'dating' ? 10 :\n    category === 'social' ? 9 :\n    category === 'nightlife' ? 8 :\n    6;\n\n  const soloFriendly =\n    source === 'InterNations' || source === 'Meetup'\n      ? 9\n      : category === 'social'\n        ? 8\n        : category === 'nightlife'\n          ? 7\n          : 6;\n\n  const travelConvenience =\n    locationText.includes('palm') ? 10 :\n    locationText.includes('marina') ||\n    locationText.includes('jbr') ? 9 :\n    locationText.includes('difc') ||\n    locationText.includes('downtown') ? 7 :\n    locationText.includes('abu dhabi') ? 4 :\n    6;\n\n  const calendarCompatibility =\n    startMinutes >= preferredStartMinutes ? 9 : 6;\n\n  const budgetAED = Number(userState.budgetAED);\n  const cost = Number(\n    event.estimatedCost ??\n    event.cost ??\n    event.price ??\n    0\n  );\n\n  const valueForMoney =\n    Number.isFinite(budgetAED) && Number.isFinite(cost)\n      ? cost <= budgetAED\n        ? 8\n        : 4\n      : 7;\n\n  const funNovelty =\n    category === 'nightlife' ? 9 :\n    category === 'dating' ? 8 :\n    category === 'social' ? 8 :\n    7;\n\n  const networkingValue =\n    source === 'InterNations' ? 10 :\n    source === 'Meetup' ? 8 :\n    category === 'social' ? 8 :\n    5;\n\n  const confidence =\n    sourceUrl ? 0.90 :\n    description ? 0.75 :\n    0.60;\n\n  const priorityAdjustment =\n    sourceBonus +\n    (derived.needsMoreSocial === true ? 2 : 0) +\n    (\n      String(userState.mood || '').toLowerCase() === 'social'\n        ? 1\n        : 0\n    );\n\n  recommendations.push({\n    id:\n      event.id ||\n      `${source.replace(/\\s+/g, '-').toLowerCase()}-${Date.now()}-${index + 1}`,\n    title,\n    category,\n    source,\n    sourcePriority: sourceBonus,\n    sourceUrl,\n    start: startDate.toISOString(),\n    end: end ? new Date(end).toISOString() : null,\n    location,\n    estimatedCost:\n      Number.isFinite(cost) ? cost : null,\n    currency:\n      event.currency || 'AED',\n    confidence,\n    reason:\n      description ||\n      `${source} source with strong ${category} potential.`,\n    rawScores: {\n      calendarCompatibility: clamp10(calendarCompatibility),\n      travelConvenience: clamp10(travelConvenience),\n      socialQuality: clamp10(socialQuality),\n      audienceFit: clamp10(audienceFit),\n      fitnessValue: 1,\n      growthValue: category === 'social' || category === 'dating' ? 8 : 6,\n      networkingValue: clamp10(networkingValue),\n      organicConnectionPotential: clamp10(organicConnectionPotential),\n      funNovelty: clamp10(funNovelty),\n      valueForMoney: clamp10(valueForMoney),\n      soloFriendly: clamp10(soloFriendly),\n      sourcePriority: clamp10(sourceBonus),\n      priorityAdjustment\n    },\n    metadata: {\n      originalSourceEvent: event,\n      discoveredAt: new Date().toISOString()\n    }\n  });\n}\n\nconst dedupeKey = event =>\n  [\n    normalizeText(event.title),\n    normalizeText(event.location),\n    String(event.start).slice(0, 16)\n  ].join('|');\n\nconst map = new Map();\n\nfor (const event of recommendations) {\n  const key = dedupeKey(event);\n  const existing = map.get(key);\n\n  if (!existing) {\n    map.set(key, event);\n    continue;\n  }\n\n  const existingPriority =\n    existing.sourcePriority +\n    existing.confidence * 10;\n\n  const newPriority =\n    event.sourcePriority +\n    event.confidence * 10;\n\n  if (newPriority > existingPriority) {\n    map.set(key, event);\n    logs.push({\n      level: 'info',\n      message: 'Duplicate event replaced by higher-priority source.',\n      details: {\n        title: event.title,\n        retainedSource: event.source,\n        removedSource: existing.source\n      }\n    });\n  } else {\n    logs.push({\n      level: 'info',\n      message: 'Duplicate event removed.',\n      details: {\n        title: event.title,\n        retainedSource: existing.source,\n        removedSource: event.source\n      }\n    });\n  }\n}\n\nconst uniqueRecommendations = [...map.values()]\n  .sort((a, b) => {\n    if (b.sourcePriority !== a.sourcePriority) {\n      return b.sourcePriority - a.sourcePriority;\n    }\n\n    return b.confidence - a.confidence;\n  });\n\nconst topRecommendations =\n  uniqueRecommendations.slice(0, 20);\n\nreturn [{\n  json: {\n    success: true,\n    result: {\n      agent: 'social_discovery',\n      summary:\n        `Found ${topRecommendations.length} unique social opportunities from ${events.length} source items.`,\n      sourcePriority,\n      recommendations: topRecommendations,\n      rejectedEvents: rejected\n    },\n    memoryUpdates: topRecommendations.map(item => ({\n      type: 'discovered_event',\n      operation: 'append',\n      payload: {\n        id: item.id,\n        title: item.title,\n        source: item.source,\n        start: item.start,\n        location: item.location,\n        status: 'discovered',\n        discoveredAt: item.metadata.discoveredAt\n      }\n    })),\n    approvalRequests: [],\n    logs: [\n      {\n        timestamp: new Date().toISOString(),\n        workflow: 'Concierge OS - Social Discovery Agent',\n        level: rejected.length ? 'warning' : 'info',\n        correlationId: metadata.correlationId || '',\n        message:\n          `Normalized ${topRecommendations.length} social recommendations.`,\n        details: {\n          sourceItemCount: events.length,\n          recommendationCount: topRecommendations.length,\n          rejectedCount: rejected.length,\n          duplicateLogCount: logs.length\n        }\n      },\n      ...logs.map(log => ({\n        timestamp: new Date().toISOString(),\n        workflow: 'Concierge OS - Social Discovery Agent',\n        correlationId: metadata.correlationId || '',\n        ...log\n      }))\n    ],\n    nextAction: {\n      type: 'rank_recommendations',\n      targetWorkflow: 'Concierge OS - Recommendation Engine'\n    },\n    error: null\n  }\n}];\n"
+      },
+      "id": "e65cf7b5-061d-4606-8cfd-9be950fcabfb",
+      "name": "Build Social Recommendations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Social Discovery Agent\n\nPriority sources:\n\n1. InterNations\n2. Meetup\n3. Eventbrite\n4. Dubai Calendar\n5. Privilee\n6. TimeOut Dubai\n7. Google Events\n\nAlso accepts:\n\n- WhatsApp forwarded messages\n- Telegram forwarded messages\n- Instagram event links\n\nResponsibilities:\n\n- normalize source events;\n- validate date and region;\n- classify social, dating, and nightlife events;\n- apply source priority;\n- deduplicate repeated events;\n- create Recommendation Engine-compatible output.\n\nNo AI credits are used.\n",
+        "height": 470,
+        "width": 500
+      },
+      "id": "1538773f-0fd7-4411-86ab-c57170320d3b",
+      "name": "SOCIAL DISCOVERY NOTES",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -620
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Normalize Social Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Called by Agent Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Normalize Social Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Social Sources": {
+      "main": [
+        [
+          {
+            "node": "Build Social Recommendations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveManualExecutions": true
+  },
+  "versionId": "0f2e61fe-9cb5-4807-a153-cf044abfc0c9",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
